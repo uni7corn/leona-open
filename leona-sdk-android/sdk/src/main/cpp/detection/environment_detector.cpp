@@ -258,6 +258,10 @@ void check_virtualization_props(EventList& out) {
         const std::string value = read_prop(prop);
         if (value.empty()) continue;
         ++metadata_count;
+        if (std::strcmp(prop, "nemud.player_uuid") == 0) {
+            metadata_ev.add(prop, "<redacted>");
+            continue;
+        }
         metadata_ev.add(prop, sanitize_sample(value));
     }
     if (metadata_count > 0) {

@@ -33,6 +33,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.MessageDigest
 import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
@@ -223,11 +224,10 @@ class MainActivity : AppCompatActivity() {
             error(getString(R.string.verdict_backend_not_configured))
         }
 
-        val currentDeviceId = runCatching { Leona.getDeviceId() }.getOrNull().orEmpty().trim()
-        val canonicalDeviceId = runCatching { Leona.getDiagnosticSnapshot().canonicalDeviceId }
-            .getOrNull()
-            .orEmpty()
-            .trim()
+        val currentDeviceIdHash = sampleHeaderHash(runCatching { Leona.getDeviceId() }.getOrNull())
+        val canonicalDeviceIdHash = sampleHeaderHash(
+            runCatching { Leona.getDiagnosticSnapshot().canonicalDeviceId }.getOrNull(),
+        )
         val body = JSONObject()
             .put("boxId", boxId.toString())
             .toString()
@@ -239,11 +239,11 @@ class MainActivity : AppCompatActivity() {
                 BuildConfig.LEONA_TENANT_ID.trim()
                     .ifEmpty { "sample" }
                     .let { header("X-Leona-Demo-Tenant", it) }
-                if (currentDeviceId.isNotEmpty()) {
-                    header("X-Leona-Demo-Device-Id", currentDeviceId)
+                if (currentDeviceIdHash.isNotEmpty()) {
+                    header("X-Leona-Demo-Device-Id-Sha256", currentDeviceIdHash)
                 }
-                if (canonicalDeviceId.isNotEmpty()) {
-                    header("X-Leona-Demo-Canonical-Device-Id", canonicalDeviceId)
+                if (canonicalDeviceIdHash.isNotEmpty()) {
+                    header("X-Leona-Demo-Canonical-Device-Id-Sha256", canonicalDeviceIdHash)
                 }
             }
             .post(body)
@@ -432,6 +432,9 @@ class MainActivity : AppCompatActivity() {
             .replace(Regex("(?i)(api[_-]?key|secret|token|bearer)(['\\\":= ]+)([^\\s,'\\\"}]+)")) {
                 it.groupValues[1] + it.groupValues[2] + "<redacted>"
             }
+
+    private fun sampleHeaderHash(value: String?): String =
+        value?.trim()?.takeIf { it.isNotEmpty() }?.let(::sha256Hex).orEmpty()
 
     private fun emitE2E(runId: String, event: String, payload: JSONObject) {
         val envelope = JSONObject()
@@ -711,4 +714,9 @@ class MainActivity : AppCompatActivity() {
 private fun JSONObject.removeAndReturn(name: String): JSONObject {
     remove(name)
     return this
+}
+
+private fun sha256Hex(value: String): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+    return digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
 }

@@ -4,8 +4,10 @@
  */
 package io.leonasec.leona.internal
 
+import io.leonasec.leona.internal.identity.DeviceFingerprintSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -102,5 +104,43 @@ class CloudConfigManagerTest {
 
         assertEquals(5000L, merged.disableCollectionWindowMs)
         assertTrue(merged.disabledSignals.containsAll(setOf("androidId", "risk.emulator", "root.basic")))
+    }
+
+    @Test
+    fun `cloud config identity headers are hashed and omit raw telemetry`() {
+        val headers = CloudConfigManager.redactedIdentityHeaders(
+            DeviceFingerprintSnapshot(
+                generatedAtMillis = 1L,
+                installId = "install-raw-123",
+                canonicalDeviceId = "Lcanonical-raw-456",
+                resolvedDeviceId = "Ldevice-raw-789",
+                fingerprintHash = "fingerprint-hash",
+                packageName = "io.test",
+                appVersionName = "1.0",
+                appVersionCode = 1L,
+                installerPackage = null,
+                androidId = "android-id",
+                signingCertSha256 = emptyList(),
+                brand = "brand",
+                model = "model",
+                manufacturer = "maker",
+                sdkInt = 35,
+                abis = listOf("arm64-v8a"),
+                localeTag = "en-US",
+                timeZoneId = "UTC",
+                screenSummary = "1080x1920@420",
+                riskSignals = setOf("root.basic", "environment.emulator"),
+            ),
+        )
+
+        assertNull(headers["X-Leona-Device-Id"])
+        assertNull(headers["X-Leona-Install-Id"])
+        assertNull(headers["X-Leona-Canonical-Device-Id"])
+        assertNull(headers["X-Leona-Risk-Signals"])
+        assertEquals("fingerprint-hash", headers["X-Leona-Fingerprint"])
+        assertTrue(headers["X-Leona-Device-Id-Sha256"].orEmpty().matches(Regex("[0-9a-f]{64}")))
+        assertTrue(headers["X-Leona-Install-Id-Sha256"].orEmpty().matches(Regex("[0-9a-f]{64}")))
+        assertTrue(headers["X-Leona-Canonical-Device-Id-Sha256"].orEmpty().matches(Regex("[0-9a-f]{64}")))
+        assertFalse(headers.values.joinToString("|").contains("raw"))
     }
 }

@@ -15,6 +15,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Response
 import okhttp3.Request
 import org.json.JSONObject
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 internal class CloudConfigManager(
@@ -141,15 +142,7 @@ internal class CloudConfigManager(
     )
 
     private fun Request.Builder.applyIdentityHeaders(snapshot: DeviceFingerprintSnapshot) {
-        header("X-Leona-Device-Id", snapshot.resolvedDeviceId)
-        header("X-Leona-Install-Id", snapshot.installId)
-        header("X-Leona-Fingerprint", snapshot.fingerprintHash)
-        if (snapshot.riskSignals.isNotEmpty()) {
-            header("X-Leona-Risk-Signals", snapshot.riskSignals.sorted().joinToString(",").take(512))
-        }
-        snapshot.canonicalDeviceId?.takeIf { it.isNotBlank() }?.let {
-            header("X-Leona-Canonical-Device-Id", it)
-        }
+        redactedIdentityHeaders(snapshot).forEach { (name, value) -> header(name, value) }
     }
 
     private fun Response.toRemoteConfigFromHeaders(): RemoteConfig {
@@ -167,6 +160,24 @@ internal class CloudConfigManager(
         const val KEY_REMOTE_ENDPOINT = "remote.endpoint"
         const val KEY_FETCHED_AT = "remote.fetchedAt"
         const val REFRESH_TTL_MS = 6L * 60L * 60L * 1000L
+
+        internal fun redactedIdentityHeaders(snapshot: DeviceFingerprintSnapshot): Map<String, String> =
+            buildMap {
+                hashHeader(snapshot.resolvedDeviceId)?.let { put("X-Leona-Device-Id-Sha256", it) }
+                hashHeader(snapshot.installId)?.let { put("X-Leona-Install-Id-Sha256", it) }
+                snapshot.canonicalDeviceId
+                    ?.let(::hashHeader)
+                    ?.let { put("X-Leona-Canonical-Device-Id-Sha256", it) }
+                snapshot.fingerprintHash.takeIf { it.isNotBlank() }?.let { put("X-Leona-Fingerprint", it) }
+            }
+
+        private fun hashHeader(value: String?): String? =
+            value?.trim()?.takeIf { it.isNotEmpty() }?.let(::sha256Hex)
+
+        private fun sha256Hex(value: String): String {
+            val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+            return digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        }
 
         internal fun isTrustedCloudConfigEndpoint(endpoint: String?): Boolean =
             endpoint?.trim()?.startsWith("https://", ignoreCase = true) == true
