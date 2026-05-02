@@ -22,3 +22,9 @@ Start here:
 
 - [Open-source policy](open-source-policy.md)
 - [Public/private boundary matrix](open-vs-private-final-matrix.md)
+
+Automation runner prerequisites:
+
+- GitHub CI visibility requires `gh` auth and access to `api.github.com`.
+- Gradle verification requires network access to `services.gradle.org` (or a pre-cached Gradle wrapper distribution).
+- In sandboxed environments, set `GRADLE_USER_HOME` to a writable path (for example: `GRADLE_USER_HOME=.gradle`).
