@@ -45,7 +45,7 @@ class SampleApp : Application() {
                   "trustTier": "oem_attested",
                   "issuedAtMillis": ${'$'}{request.issuedAtMillis},
                   "challenge": "${'$'}{request.challenge}",
-                  "installId": "${'$'}{request.installId}",
+                  "installIdSha256": "${'$'}{request.installIdSha256}",
                   "packageName": "${'$'}{request.packageName}",
                   "evidenceLabels": ["boot_locked", "tee_key"],
                   "claims": {
