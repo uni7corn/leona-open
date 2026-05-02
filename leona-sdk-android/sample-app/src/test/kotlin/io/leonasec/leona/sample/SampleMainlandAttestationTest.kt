@@ -14,7 +14,7 @@ class SampleMainlandAttestationTest {
         val token = SampleMainlandAttestation.buildDebugToken(
             SampleMainlandAttestation.Request(
                 challenge = "abc123",
-                installId = "install-1",
+                installIdSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 packageName = "io.demo.sample",
                 manufacturer = "Xiaomi",
                 brand = "Redmi",
@@ -27,7 +27,7 @@ class SampleMainlandAttestationTest {
         assertTrue(token.contains("\"provider\":\"sample_mainland_debug\""))
         assertTrue(token.contains("\"trustTier\":\"oem_attested\""))
         assertTrue(token.contains("\"challenge\":\"abc123\""))
-        assertTrue(token.contains("\"installId\":\"install-1\""))
+        assertTrue(token.contains("\"installIdSha256\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\""))
         assertTrue(token.contains("\"packageName\":\"io.demo.sample\""))
         assertTrue(token.contains("\"manufacturer\":\"Xiaomi\""))
         assertTrue(token.contains("\"mode\":\"oem_debug_fake\""))

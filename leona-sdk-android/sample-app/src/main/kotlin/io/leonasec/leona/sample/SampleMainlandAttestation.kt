@@ -22,7 +22,7 @@ object SampleMainlandAttestation {
 
     data class Request(
         val challenge: String,
-        val installId: String,
+        val installIdSha256: String,
         val packageName: String,
         val manufacturer: String,
         val brand: String,
@@ -68,7 +68,7 @@ object SampleMainlandAttestation {
                 token = buildDebugToken(
                     Request(
                         challenge = challenge,
-                        installId = installId,
+                        installIdSha256 = installId,
                         packageName = context.packageName,
                         manufacturer = Build.MANUFACTURER.orEmpty(),
                         brand = Build.BRAND.orEmpty(),
@@ -86,7 +86,7 @@ object SampleMainlandAttestation {
             override suspend fun attest(challenge: String, installId: String): AttestationStatement? {
                 val request = Request(
                     challenge = challenge,
-                    installId = installId,
+                    installIdSha256 = installId,
                     packageName = context.packageName,
                     manufacturer = Build.MANUFACTURER.orEmpty(),
                     brand = Build.BRAND.orEmpty(),
@@ -125,7 +125,7 @@ object SampleMainlandAttestation {
         append("\"trustTier\":\"oem_attested\",")
         append("\"issuedAtMillis\":").append(request.issuedAtMillis).append(',')
         append("\"challenge\":\"").append(jsonEscape(request.challenge)).append("\",")
-        append("\"installId\":\"").append(jsonEscape(request.installId)).append("\",")
+        append("\"installIdSha256\":\"").append(jsonEscape(request.installIdSha256)).append("\",")
         append("\"packageName\":\"").append(jsonEscape(request.packageName)).append("\",")
         append("\"evidenceLabels\":[\"debug_fake\",\"non_gms_sample\"],")
         append("\"claims\":{")
