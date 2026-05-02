@@ -273,6 +273,8 @@ canonical identity updates.
 - `authoritativeRiskTags`
 - `telemetryRiskTags`
 - `riskTagsBySource`
+- `provenance`
+- `policyExplanation`
 - `verdict.decision`
 - `verdict.action`
 - `verdict.riskLevel`
@@ -289,6 +291,10 @@ Only server verdict fields may populate final risk outputs. In particular:
   payload classifications.
 - `telemetryRiskTags` may include low-trust client header observations.
 - `riskTagsBySource.client_header` is telemetry, not an action source.
+- `provenance` records the scoring engine, scored timestamp, event source,
+  event trust, and authoritative/telemetry tag split.
+- `policyExplanation` records the server-side decision, action, risk level,
+  score, reasons, contributing event ids, and authoritative event ids.
 
 The SDK normalizes server outputs into:
 
