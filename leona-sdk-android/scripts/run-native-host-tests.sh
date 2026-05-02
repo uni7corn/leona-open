@@ -23,3 +23,17 @@ mkdir -p "$OUT_DIR"
   -o "$OUT_DIR/injection_maps_baseline_test"
 
 "$OUT_DIR/injection_maps_baseline_test"
+
+"$CXX_BIN" \
+  -std=c++17 \
+  -Wall \
+  -Wextra \
+  -Werror \
+  -I"$TEST_DIR/fakes" \
+  -I"$CPP_DIR" \
+  "$TEST_DIR/environment_metadata_redaction_test.cpp" \
+  "$CPP_DIR/detection/environment_detector.cpp" \
+  "$CPP_DIR/util/evidence_builder.cpp" \
+  -o "$OUT_DIR/environment_metadata_redaction_test"
+
+"$OUT_DIR/environment_metadata_redaction_test"

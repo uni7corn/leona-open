@@ -7,6 +7,7 @@
 package io.leonasec.leona.internal
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -167,7 +168,54 @@ class NativePayloadInspectorTest {
         assertTrue("expected frida tag", "hook.frida.native" in summary.riskTags)
     }
 
+    @Test
+    fun `mumu guest metadata upload fixture redacts player uuid evidence`() {
+        val rawPlayerUuid = "8f56b1f4-8d99-4a47-b13a-611d0f337eaa"
+        val payload = buildPayload(
+            Event(
+                id = "env.emulator.runtime.guest_metadata_props",
+                severity = 3,
+                category = 2,
+                message = "Guest-visible metadata exposes emulator host integration",
+                evidence = listOf(
+                    "nemud.player_package=com.netease.mumu",
+                    "nemud.player_engine=MuMuPlayer",
+                    "nemud.player_uuid=<redacted>",
+                    "metadataPropCount=3",
+                ).joinToString(";"),
+            ),
+        )
+
+        val parsed = parsePayload(payload).single()
+        assertEquals("env.emulator.runtime.guest_metadata_props", parsed.id)
+        assertFalse(
+            "uploaded native evidence must not include raw MuMu player UUID",
+            parsed.evidence.contains(rawPlayerUuid),
+        )
+        assertTrue(
+            "uploaded native evidence should keep only a redacted marker or digest",
+            parsed.evidence.contains("nemud.player_uuid=<redacted>") ||
+                Regex("""nemud\.player_uuid_sha256=[0-9a-f]{64}""").containsMatchIn(parsed.evidence),
+        )
+
+        val summary = NativePayloadInspector.inspect(payload)
+        assertEquals(listOf("env.emulator.runtime.guest_metadata_props"), summary.findingIds)
+        assertTrue("expected emulator fact", "environment.emulator.evidence" in summary.factTags)
+        assertFalse(
+            "parsed native findings must not expose raw MuMu player UUID",
+            summary.findings.joinToString().contains(rawPlayerUuid),
+        )
+    }
+
     private data class Event(
+        val id: String,
+        val severity: Int,
+        val category: Int,
+        val message: String,
+        val evidence: String,
+    )
+
+    private data class ParsedEvent(
         val id: String,
         val severity: Int,
         val category: Int,
@@ -191,6 +239,40 @@ class NativePayloadInspectorTest {
         return scramble(raw.toByteArray())
     }
 
+    private fun parsePayload(payload: ByteArray): List<ParsedEvent> {
+        val decoded = scramble(payload.copyOf())
+        assertEquals('L'.code.toByte(), decoded[0])
+        assertEquals('N'.code.toByte(), decoded[1])
+        assertEquals('A'.code.toByte(), decoded[2])
+        assertEquals('1'.code.toByte(), decoded[3])
+        assertEquals(0x01.toByte(), decoded[4])
+
+        var offset = 8
+        return buildList {
+            repeat(decoded.u16(6)) {
+                val id = decoded.readString(offset)
+                offset = id.nextOffset
+                val severity = decoded.u8(offset)
+                offset += 1
+                val category = decoded.u8(offset)
+                offset += 1
+                val message = decoded.readString(offset)
+                offset = message.nextOffset
+                val evidence = decoded.readString(offset)
+                offset = evidence.nextOffset
+                add(
+                    ParsedEvent(
+                        id = id.value,
+                        severity = severity,
+                        category = category,
+                        message = message.value,
+                        evidence = evidence.value,
+                    ),
+                )
+            }
+        }
+    }
+
     private fun ArrayList<Byte>.writeU16(value: Int) {
         add((value and 0xFF).toByte())
         add(((value shr 8) and 0xFF).toByte())
@@ -209,5 +291,31 @@ class NativePayloadInspectorTest {
             k = (k * 31 + 17) and 0xFF
         }
         return bytes
+    }
+
+    private data class ParsedString(
+        val value: String,
+        val nextOffset: Int,
+    )
+
+    private fun ByteArray.u8(offset: Int): Int =
+        getOrNull(offset)?.toInt()?.and(0xFF)
+            ?: error("Invalid payload offset=$offset")
+
+    private fun ByteArray.u16(offset: Int): Int {
+        val b0 = u8(offset)
+        val b1 = u8(offset + 1)
+        return b0 or (b1 shl 8)
+    }
+
+    private fun ByteArray.readString(offset: Int): ParsedString {
+        val len = u16(offset)
+        val start = offset + 2
+        val end = start + len
+        if (end > size) error("Malformed payload string")
+        return ParsedString(
+            value = decodeToString(start, end),
+            nextOffset = end,
+        )
     }
 }
