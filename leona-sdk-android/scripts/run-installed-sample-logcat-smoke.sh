@@ -341,6 +341,15 @@ def compact_list(value):
         return [str(item) for item in value if str(item)]
     return []
 
+def compact_tags(*values):
+    tags = []
+    for value in values:
+        tags.extend(compact_list(value))
+    return sorted(set(tags))
+
+def fallback_tags(primary, legacy):
+    return primary if primary else legacy
+
 def digest(value):
     text = str(value or "").strip()
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16] if text else ""
@@ -392,6 +401,7 @@ def sanitize_decoded(value, parent_key=""):
 
 sense = events.get("sense") or {}
 post = events.get("post") or {}
+post_verdict = events.get("postVerdict") or {}
 complete = events.get("complete") or {}
 demo = events.get("demoVerdict") or {}
 
@@ -412,13 +422,32 @@ canonical_hint = str(
     or ""
 )
 canonical_hash = canonical if len(canonical) == 16 and all(c in "0123456789abcdef" for c in canonical.lower()) else digest(canonical)
-risk_tags = sorted(set(
-    compact_list(nested(post, "diagnostic", "localRiskSignals"))
-    + compact_list(nested(post, "diagnostic", "serverRiskTags"))
-    + compact_list(nested(post, "diagnostic", "nativeRiskTags"))
-    + compact_list(nested(demo, "summary", "riskTags"))
+local_evidence_signals = fallback_tags(compact_tags(
+    nested(post, "diagnostic", "localEvidenceSignals"),
+    nested(post, "diagnostic", "evidenceSignals"),
+    nested(post_verdict, "diagnostic", "localEvidenceSignals"),
+    nested(post_verdict, "diagnostic", "evidenceSignals"),
+), compact_tags(
+    nested(post, "diagnostic", "localRiskSignals"),
+    nested(post_verdict, "diagnostic", "localRiskSignals"),
 ))
-native_findings = sorted(set(compact_list(nested(post, "diagnostic", "nativeFindingIds"))))
+native_fact_tags = fallback_tags(compact_tags(
+    nested(post, "diagnostic", "nativeFactTags"),
+    nested(post_verdict, "diagnostic", "nativeFactTags"),
+), compact_tags(
+    nested(post, "diagnostic", "nativeRiskTags"),
+    nested(post_verdict, "diagnostic", "nativeRiskTags"),
+))
+native_findings = compact_tags(
+    nested(post, "diagnostic", "nativeFindingIds"),
+    nested(post_verdict, "diagnostic", "nativeFindingIds"),
+)
+server_risk_tags = compact_tags(
+    nested(post, "diagnostic", "serverRiskTags"),
+    nested(post_verdict, "diagnostic", "serverRiskTags"),
+    nested(demo, "summary", "riskTags"),
+)
+risk_tags = server_risk_tags
 
 report = {
     "runId": selected_run_id,
@@ -426,8 +455,11 @@ report = {
     "formalBoxId": formal_box_id,
     "canonicalDeviceIdHint": canonical_hint,
     "canonicalDeviceIdSha256": canonical_hash,
+    "localEvidenceSignals": local_evidence_signals,
+    "nativeFactTags": native_fact_tags,
     "riskTags": risk_tags,
     "nativeFindingIds": native_findings,
+    "serverRiskTags": server_risk_tags,
     "events": sanitize_decoded(events),
     "incompleteEvents": incomplete_by_run.get(selected_run_id) or {},
 }
@@ -438,8 +470,11 @@ summary_path.write_text(
     f"formal_box_id={shlex.quote(formal_box_id)}\n"
     f"canonical_device_id_hint={shlex.quote(canonical_hint)}\n"
     f"canonical_device_id_sha256={shlex.quote(canonical_hash)}\n"
-    f"risk_tags={shlex.quote(','.join(risk_tags))}\n"
-    f"native_finding_ids={shlex.quote(','.join(native_findings))}\n",
+    f"local_evidence_signals={shlex.quote(','.join(local_evidence_signals))}\n"
+    f"native_fact_tags={shlex.quote(','.join(native_fact_tags))}\n"
+    f"native_finding_ids={shlex.quote(','.join(native_findings))}\n"
+    f"server_risk_tags={shlex.quote(','.join(server_risk_tags))}\n"
+    f"risk_tags={shlex.quote(','.join(risk_tags))}\n",
     encoding="utf-8",
 )
 
@@ -449,8 +484,11 @@ print(json.dumps({
     "formalBoxId": formal_box_id,
     "canonicalDeviceIdHint": canonical_hint,
     "canonicalDeviceIdSha256": canonical_hash,
+    "localEvidenceSignals": local_evidence_signals,
+    "nativeFactTags": native_fact_tags,
     "riskTags": risk_tags,
     "nativeFindingIds": native_findings,
+    "serverRiskTags": server_risk_tags,
     "report": str(report_path),
     "summary": str(summary_path),
 }, ensure_ascii=False))

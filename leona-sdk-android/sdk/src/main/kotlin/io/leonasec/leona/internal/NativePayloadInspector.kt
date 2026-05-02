@@ -177,6 +177,7 @@ internal object NativePayloadInspector {
                 id.startsWith("injection.ptrace.") -> add("runtime.ptrace.evidence")
                 id.startsWith("injection.") -> add("runtime.injection.evidence")
                 id.startsWith("xposed.") -> add("runtime.xposed.evidence")
+                id.startsWith("runtime.mapping.") -> add(id)
                 id.startsWith("root.") -> add("device.root.evidence")
                 id.startsWith("environment.emulator.") ||
                     id == "environment.emulator" ||

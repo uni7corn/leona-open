@@ -295,7 +295,7 @@ snapshot:
 
 ```kotlin
 val diag = Leona.getDiagnosticSnapshot()
-// deviceId / fingerprint / localRiskSignals / nativeRiskTags / nativeFindingIds
+// deviceId / fingerprint / evidenceSignals / nativeFactTags / nativeFindingIds
 
 val diagJson = Leona.getDiagnosticSnapshotJson()
 val lastVerdict = Leona.getLastServerVerdict()

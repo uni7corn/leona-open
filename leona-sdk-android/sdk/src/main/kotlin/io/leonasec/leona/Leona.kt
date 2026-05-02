@@ -15,6 +15,7 @@ import io.leonasec.leona.internal.NativeBridge
 import io.leonasec.leona.internal.NativePayloadInspector
 import io.leonasec.leona.internal.SecureChannel
 import io.leonasec.leona.internal.TamperContext
+import io.leonasec.leona.internal.identity.DeviceFingerprintSnapshot
 import io.leonasec.leona.internal.identity.DeviceIdentityManager
 import io.leonasec.leona.internal.spi.SecureDeviceContext
 import io.leonasec.leona.internal.toTamperPolicy
@@ -113,29 +114,37 @@ object Leona {
         val payload = NativeBridge.collect()
         val nativeRisk = NativePayloadInspector.inspect(payload)
         state.lastNativeRisk.set(nativeRisk)
-        val mergedEvidenceSignals = snapshot.evidenceSignals + nativeRisk.factTags
         val uploadResult = state.channel.upload(
             payload = payload,
-            deviceContext = SecureDeviceContext(
-                installId = snapshot.installId,
-                resolvedDeviceId = snapshot.resolvedDeviceId,
-                canonicalDeviceId = snapshot.canonicalDeviceId,
-                fingerprintHash = snapshot.fingerprintHash,
-                riskSignals = mergedEvidenceSignals,
-                nativeRiskTags = nativeRisk.factTags,
-                evidenceSignals = mergedEvidenceSignals,
-                nativeFactTags = nativeRisk.factTags,
-                nativeFindingIds = nativeRisk.findingIds,
-                nativeHighestSeverity = nativeRisk.highestSeverity,
-                deviceEnvironmentEvidence = snapshot.deviceEnvironmentEvidence,
-                installerPackage = snapshot.installerPackage,
-                signingCertSha256 = snapshot.signingCertSha256,
-                sdkInt = snapshot.sdkInt,
-            ),
+            deviceContext = buildSecureDeviceContext(snapshot, nativeRisk),
         )
         uploadResult.canonicalDeviceId?.let(state.identityManager::updateCanonicalDeviceId)
         state.lastServerVerdict.set(uploadResult.serverVerdict)
         uploadResult.boxId
+    }
+
+    internal fun buildSecureDeviceContext(
+        snapshot: DeviceFingerprintSnapshot,
+        nativeRisk: NativePayloadInspector.NativeRiskSummary,
+    ): SecureDeviceContext {
+        val mergedRiskSignals = snapshot.riskSignals + nativeRisk.riskTags
+        val mergedEvidenceSignals = snapshot.evidenceSignals + nativeRisk.factTags
+        return SecureDeviceContext(
+            installId = snapshot.installId,
+            resolvedDeviceId = snapshot.resolvedDeviceId,
+            canonicalDeviceId = snapshot.canonicalDeviceId,
+            fingerprintHash = snapshot.fingerprintHash,
+            riskSignals = mergedRiskSignals,
+            nativeRiskTags = nativeRisk.riskTags,
+            evidenceSignals = mergedEvidenceSignals,
+            nativeFactTags = nativeRisk.factTags,
+            nativeFindingIds = nativeRisk.findingIds,
+            nativeHighestSeverity = nativeRisk.highestSeverity,
+            deviceEnvironmentEvidence = snapshot.deviceEnvironmentEvidence,
+            installerPackage = snapshot.installerPackage,
+            signingCertSha256 = snapshot.signingCertSha256,
+            sdkInt = snapshot.sdkInt,
+        )
     }
 
     /** Java-friendly async variant of [sense]. */

@@ -92,6 +92,7 @@ class NativePayloadInspectorTest {
 
         assertEquals(1, summary.eventCount)
         assertEquals(listOf("runtime.mapping.memfd_executable"), summary.findingIds)
+        assertEquals(setOf("runtime.mapping.memfd_executable"), summary.factTags)
         assertTrue("runtime facts should not imply hook risk", "hook.injection.native" !in summary.riskTags)
         assertTrue("runtime facts should not imply frida risk", "hook.frida.native" !in summary.riskTags)
     }

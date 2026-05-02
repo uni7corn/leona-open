@@ -1,9 +1,18 @@
-# Device identity & risk protocol sketch
+# Device identity and evidence protocol sketch
 
-This document captures the current **Leona Android client → server** field
-shape for the device identity / risk path that now exists in the SDK.
+This document captures the current **Leona Android client -> server** field
+shape for the device identity, evidence, native facts, and server verdict path
+used by the SDK.
 
 It is intentionally a **practical integration draft**, not a formal RFC.
+
+Core rule:
+
+- The Android SDK collects and uploads evidence.
+- The Android SDK does not make final allow/deny or risk decisions.
+- `riskTags` are produced only by the server verdict path.
+- Any client-supplied header evidence is `source=client_header`,
+  `trust=low`, and must be treated as evidence/telemetry only.
 
 ---
 
@@ -15,64 +24,105 @@ Leona currently maintains three identity layers on-device:
    - per-install stable UUID
    - persisted locally
    - used during secure handshake
+   - never sent in public control-plane headers as raw identity
 
 2. **resolvedDeviceId**
    - best currently-known device identifier
    - `T...` = temporary local derived device id
    - `L...` = canonical server-issued device id
+   - sent to public/control-plane services as SHA-256 only
 
 3. **fingerprintHash**
    - stable-ish hash over package / signer / androidId-or-installId /
      locale / timezone / model / selected signals
    - used as a correlation hint, not as a standalone business identifier
 
+Canonical identity is server-owned. Client-provided canonical values, including
+legacy raw headers, are claims at most; they are not identity authority.
+
 ---
 
 ## 2. Client-side sources
 
-### Local identity snapshot
+### Local identity and evidence snapshot
 
 Current local snapshot is built from:
 
 - package name
 - app version
 - installer package
-- Android ID (when allowed)
+- Android ID when allowed, only inside local derivation / hashed summaries
 - signing cert SHA-256
 - brand / model / manufacturer / sdkInt / abi
 - locale / timezone / screen summary
-- Java-side risk signals
+- Java-side evidence signals
+- device environment evidence such as build channel, bootloader, verified boot,
+  GSI/Treble, custom ROM hints, and emulator/runtime facts
 
-### Native risk summary
+The public field names are:
 
-The native payload is now decoded locally into:
+- `evidenceSignals`
+- `deviceEnvironmentEvidence`
+
+Compatibility aliases may still exist in SDK APIs:
+
+- `riskSignals` is deprecated and maps to client-side evidence.
+- `localRiskSignals` is deprecated and maps to client-side evidence.
+
+These aliases must not be interpreted as final risk decisions.
+
+### Native fact summary
+
+The native payload is decoded locally into:
 
 - `nativeFindingIds`
-- `nativeRiskTags`
+- `nativeFactTags`
 - `nativeHighestSeverity`
 
 Examples:
 
-- `hook.frida.native`
-- `hook.xposed.native`
-- `environment.unidbg.native`
-- `tamper.code_or_manifest.native`
+- `runtime.frida.evidence`
+- `runtime.mapping.memfd_executable`
+- `runtime.mapping.deleted_executable`
+- `environment.unidbg.runtime_fact`
+- `tamper.manifest_or_code_fact`
+
+Compatibility aliases may still exist in SDK APIs:
+
+- `nativeRiskTags` is deprecated and maps to native fact tags.
+
+Native fact tags are evidence. They become risk only if the server verdict
+policy classifies them that way.
 
 ---
 
 ## 3. Cloud-config request fields
 
-Current cloud-config requests send headers:
+Current cloud-config requests send public routing and hashed identity headers:
 
 - `X-Leona-App-Key`
 - `X-Leona-Tenant`
 - `X-Leona-App-Id`
 - `X-Leona-Channel`
-- `X-Leona-Device-Id`
-- `X-Leona-Install-Id`
+- `X-Leona-Device-Id-Sha256`
+- `X-Leona-Install-Id-Sha256`
 - `X-Leona-Fingerprint`
+- `X-Leona-Canonical-Device-Id-Sha256`
+
+The `*-Sha256` values are full lowercase 64-hex SHA-256 digests.
+
+Cloud-config requests must not send:
+
+- raw `X-Leona-Device-Id`
+- raw `X-Leona-Install-Id`
+- raw `X-Leona-Canonical-Device-Id`
 - `X-Leona-Risk-Signals`
-- `X-Leona-Canonical-Device-Id`
+- `X-Leona-Native-Risk-Tags`
+
+Cloud-config is a collection-policy control plane. It is not an identity
+binding authority, and the SDK does not persist canonical device ids from
+mobile-config body fields or headers. Canonical ids are only accepted from the
+secure reporting handshake / sense response path.
 
 ### Cloud-config response fields
 
@@ -96,21 +146,17 @@ And these response headers:
 - `X-Leona-Disabled-Signals`
 - `X-Leona-Disable-Collection-Window-Ms`
 
-Mobile-config is a collection-policy control plane. It is not an identity
-binding authority, and the SDK does not persist canonical device ids from
-mobile-config body fields or headers. Canonical ids are only accepted from the
-secure reporting handshake / sense response path.
-
 ---
 
 ## 4. Handshake request sketch
 
-The private secure reporting module currently sends:
+The private secure reporting module should send identity claims, hashes, and
+client evidence as structured data:
 
 ```json
 {
   "clientPublicKey": "...",
-  "installId": "...",
+  "installIdSha256": "...",
   "sdkVersion": "...",
   "deviceBinding": {
     "keyAlgorithm": "EC_P256",
@@ -120,13 +166,15 @@ The private secure reporting module currently sends:
     "hardwareBacked": true
   },
   "deviceIdentity": {
-    "installId": "...",
-    "resolvedDeviceId": "T...",
-    "canonicalDeviceId": null,
+    "resolvedDeviceIdSha256": "...",
+    "canonicalDeviceIdSha256": null,
     "fingerprintHash": "...",
-    "riskSignals": ["root.basic"],
-    "nativeRiskTags": ["environment.unidbg.native"],
-    "nativeFindingIds": ["unidbg.parent.non_zygote"],
+    "evidenceSignals": ["root.su_or_busybox_path_present"],
+    "deviceEnvironmentEvidence": {
+      "derivedEvidence": ["verified_boot.green", "bootloader.locked"]
+    },
+    "nativeFactTags": ["runtime.mapping.memfd_executable"],
+    "nativeFindingIds": ["injection.frida.known_library"],
     "nativeHighestSeverity": 3,
     "installerPackage": "com.android.vending",
     "signingCertSha256": ["..."],
@@ -134,6 +182,15 @@ The private secure reporting module currently sends:
   }
 }
 ```
+
+Legacy fields, if a mixed-version client still sends them, have this meaning:
+
+- `installId`, `resolvedDeviceId`, and `canonicalDeviceId` are client claims.
+- `riskSignals` is a deprecated alias for `evidenceSignals`.
+- `nativeRiskTags` is a deprecated alias for `nativeFactTags`.
+- Server ingestion must mark these legacy client-originated values as
+  `source=client_header` or equivalent client telemetry with `trust=low`,
+  unless they are validated by the signed native payload or server policy.
 
 ### Handshake response fields recognized by client
 
@@ -154,6 +211,7 @@ Recommendation for server:
 
 - always return a **canonical device id** once available
 - keep it stable across app reinstalls when your server risk policy allows
+- bind canonical identity to server-side session/device-binding state
 
 ---
 
@@ -168,18 +226,32 @@ Current sense request sends secure headers:
 - `X-Leona-Nonce`
 - `X-Leona-Signature`
 
-And identity/risk headers:
+And hashed identity / evidence headers:
 
-- `X-Leona-Device-Id`
-- `X-Leona-Install-Id`
+- `X-Leona-Device-Id-Sha256`
+- `X-Leona-Install-Id-Sha256`
 - `X-Leona-Fingerprint`
-- `X-Leona-Risk-Signals`
-- `X-Leona-Canonical-Device-Id`
-- `X-Leona-Native-Risk-Tags`
+- `X-Leona-Canonical-Device-Id-Sha256`
+- `X-Leona-Evidence-Signals`
+- `X-Leona-Native-Fact-Tags`
 - `X-Leona-Native-Finding-Ids`
 - `X-Leona-Native-Highest-Severity`
 
-Body is still the encrypted native payload blob.
+Body remains the encrypted native payload blob. The signed/encrypted payload is
+the preferred source for native evidence provenance.
+
+Sense requests must not use these old headers as authoritative signal paths:
+
+- `X-Leona-Device-Id`
+- `X-Leona-Install-Id`
+- `X-Leona-Canonical-Device-Id`
+- `X-Leona-Risk-Signals`
+- `X-Leona-Native-Risk-Tags`
+
+Legacy receivers may accept old headers for compatibility, but they must record
+them as `source=client_header`, `trust=low` telemetry. Header-only poisoning
+must not produce authoritative risk tags, block tags, reject actions, or
+canonical identity updates.
 
 ### Sense response fields recognized by client
 
@@ -198,6 +270,9 @@ Body is still the encrypted native payload blob.
 - `riskLevel`
 - `riskScore`
 - `riskTags`
+- `authoritativeRiskTags`
+- `telemetryRiskTags`
+- `riskTagsBySource`
 - `verdict.decision`
 - `verdict.action`
 - `verdict.riskLevel`
@@ -207,7 +282,15 @@ Body is still the encrypted native payload blob.
 - `risk.score`
 - `risk.tags`
 
-The SDK now normalizes these into:
+Only server verdict fields may populate final risk outputs. In particular:
+
+- Top-level `riskTags` means server verdict risk tags.
+- `authoritativeRiskTags` may include server policy and authoritative native
+  payload classifications.
+- `telemetryRiskTags` may include low-trust client header observations.
+- `riskTagsBySource.client_header` is telemetry, not an action source.
+
+The SDK normalizes server outputs into:
 
 - `Leona.getLastServerVerdict()`
 - `Leona.getLastServerVerdictJson()`
@@ -226,7 +309,8 @@ The support bundle currently includes:
 - cached cloud-config body + fetch timestamp
 - secure transport state:
   - private-core availability
-  - device-binding keystore alias presence / public-key SHA-256 / hardware-backed hint
+  - device-binding keystore alias presence / public-key SHA-256 /
+    hardware-backed hint
   - cached secure session expiry / canonical device id / tamper-policy presence
   - last attestation format + token SHA-256
   - last handshake timestamp / error
@@ -238,10 +322,15 @@ The support bundle currently includes:
 Suggested priority:
 
 1. trusted existing canonical mapping by device binding public key
-2. existing mapping by resolved canonical device id
+2. existing mapping by server-issued canonical device id already bound to the
+   session
 3. existing mapping by strong fingerprint cluster
-4. existing mapping by install history + signer + package + risk continuity
+4. existing mapping by install history + signer + package + evidence continuity
 5. otherwise mint new canonical device id
+
+Client raw identity headers are not part of this authority chain. If a legacy
+client sends a raw canonical claim, store it only as claimed identity telemetry
+and compare it against server-bound canonical state.
 
 Recommended output:
 
@@ -253,7 +342,25 @@ Recommended output:
 
 ---
 
-## 7. Important client-side rule
+## 7. Provenance and trust rules
+
+Server ingestion should preserve provenance for every evidence or risk-related
+item:
+
+| Source | Trust | May affect final `riskTags`? | Notes |
+| --- | --- | --- | --- |
+| `server_policy` | authoritative | Yes | Tenant policy, server-side lookup, server-side correlation. |
+| `native_payload` | authoritative when signed/encrypted and bound to session | Yes | Native evidence still needs policy classification. |
+| `client_header` | low | No, telemetry only | Includes evidence/fact headers and all legacy risk headers. |
+| `unknown` | low | No, telemetry only | Fail closed into telemetry until provenance is known. |
+
+`X-Leona-Evidence-Signals` and `X-Leona-Native-Fact-Tags` are useful for
+observability, debugging, and transition compatibility. They are not final
+risk decisions by themselves.
+
+---
+
+## 8. Important client-side rule
 
 The debug API:
 
@@ -266,9 +373,11 @@ is for **QA / observability only**.
 
 Do **not** use:
 
-- local risk tags
-- local native findings
+- local evidence signals
+- local native fact tags
+- local native finding ids
 - local severity
+- deprecated local risk aliases
 
 as your final in-app allow/deny decision. Final decisions should still come
-from your backend using `BoxId`.
+from your backend using `BoxId` and the server verdict.
