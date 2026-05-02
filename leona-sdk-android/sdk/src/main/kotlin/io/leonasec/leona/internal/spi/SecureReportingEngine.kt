@@ -8,13 +8,22 @@ import io.leonasec.leona.BoxId
 import io.leonasec.leona.LeonaDeviceEnvironmentEvidence
 import io.leonasec.leona.LeonaSecureTransportSnapshot
 import io.leonasec.leona.LeonaServerVerdict
+import io.leonasec.leona.internal.ClientEvidenceSignalMapper
 
 data class SecureDeviceContext(
     val installId: String,
     val resolvedDeviceId: String,
     val canonicalDeviceId: String? = null,
     val fingerprintHash: String,
+    @Deprecated(
+        message = "Use evidenceSignals. Client-side values are low-trust evidence, not final risk decisions.",
+        replaceWith = ReplaceWith("evidenceSignals"),
+    )
     val riskSignals: Set<String> = emptySet(),
+    @Deprecated(
+        message = "Use nativeFactTags/nativeFindingIds. Client-side values are low-trust evidence, not final risk decisions.",
+        replaceWith = ReplaceWith("nativeFactTags"),
+    )
     val nativeRiskTags: Set<String> = emptySet(),
     val nativeFindingIds: List<String> = emptyList(),
     val nativeHighestSeverity: Int? = null,
@@ -22,6 +31,8 @@ data class SecureDeviceContext(
     val signingCertSha256: List<String> = emptyList(),
     val sdkInt: Int? = null,
     val deviceEnvironmentEvidence: LeonaDeviceEnvironmentEvidence = LeonaDeviceEnvironmentEvidence.EMPTY,
+    val evidenceSignals: Set<String> = ClientEvidenceSignalMapper.toEvidenceSignals(riskSignals),
+    val nativeFactTags: Set<String> = nativeRiskTags,
 ) {
     constructor(
         installId: String,
@@ -48,6 +59,8 @@ data class SecureDeviceContext(
         signingCertSha256 = signingCertSha256,
         sdkInt = sdkInt,
         deviceEnvironmentEvidence = LeonaDeviceEnvironmentEvidence.EMPTY,
+        evidenceSignals = ClientEvidenceSignalMapper.toEvidenceSignals(riskSignals),
+        nativeFactTags = nativeRiskTags,
     )
 }
 

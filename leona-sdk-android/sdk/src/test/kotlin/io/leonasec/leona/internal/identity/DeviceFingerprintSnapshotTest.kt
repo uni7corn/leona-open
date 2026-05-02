@@ -44,5 +44,9 @@ class DeviceFingerprintSnapshotTest {
         val parsed = DeviceFingerprintSnapshot.fromJson(snapshot.toJson())
         assertNotNull(parsed)
         assertEquals(snapshot, parsed)
+        assertEquals(
+            setOf("root.su_or_busybox_path_present", "debugger.attached"),
+            parsed?.evidenceSignals,
+        )
     }
 }

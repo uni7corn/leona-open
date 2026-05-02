@@ -2,6 +2,8 @@
  * Copyright 2026 Leona Contributors.
  * Licensed under the Apache License, Version 2.0.
  */
+@file:Suppress("DEPRECATION")
+
 package io.leonasec.leona
 
 import android.content.Context
@@ -111,7 +113,7 @@ object Leona {
         val payload = NativeBridge.collect()
         val nativeRisk = NativePayloadInspector.inspect(payload)
         state.lastNativeRisk.set(nativeRisk)
-        val mergedRiskSignals = snapshot.riskSignals + nativeRisk.riskTags
+        val mergedEvidenceSignals = snapshot.evidenceSignals + nativeRisk.factTags
         val uploadResult = state.channel.upload(
             payload = payload,
             deviceContext = SecureDeviceContext(
@@ -119,8 +121,10 @@ object Leona {
                 resolvedDeviceId = snapshot.resolvedDeviceId,
                 canonicalDeviceId = snapshot.canonicalDeviceId,
                 fingerprintHash = snapshot.fingerprintHash,
-                riskSignals = mergedRiskSignals,
-                nativeRiskTags = nativeRisk.riskTags,
+                riskSignals = mergedEvidenceSignals,
+                nativeRiskTags = nativeRisk.factTags,
+                evidenceSignals = mergedEvidenceSignals,
+                nativeFactTags = nativeRisk.factTags,
                 nativeFindingIds = nativeRisk.findingIds,
                 nativeHighestSeverity = nativeRisk.highestSeverity,
                 deviceEnvironmentEvidence = snapshot.deviceEnvironmentEvidence,
@@ -191,8 +195,10 @@ object Leona {
             timeZoneId = identity.timeZoneId,
             screenSummary = identity.screenSummary,
             localRiskSignals = identity.riskSignals,
+            evidenceSignals = identity.evidenceSignals,
             deviceEnvironmentEvidence = identity.deviceEnvironmentEvidence,
             nativeRiskTags = nativeRisk.riskTags,
+            nativeFactTags = nativeRisk.factTags,
             nativeFindingIds = nativeRisk.findingIds,
             nativeHighestSeverity = nativeRisk.highestSeverity,
             nativeEventCount = nativeRisk.eventCount,

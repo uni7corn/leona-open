@@ -78,7 +78,7 @@
                     android:fontFamily="monospace"
                     android:text="@string/diagnostic_placeholder"
                     android:textAppearance="?attr/textAppearanceBodySmall"
-                    tools:text="localRisk=[]&#10;nativeRisk=[]" />
+                    tools:text="evidence=[]&#10;nativeFacts=[]" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonToggleDiagnosticJson"

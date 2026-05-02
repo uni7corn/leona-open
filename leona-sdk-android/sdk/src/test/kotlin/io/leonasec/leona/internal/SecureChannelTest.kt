@@ -2,6 +2,8 @@
  * Copyright 2026 Leona Contributors.
  * Licensed under the Apache License, Version 2.0.
  */
+@file:Suppress("DEPRECATION")
+
 package io.leonasec.leona.internal
 
 import android.content.Context
@@ -191,6 +193,24 @@ class SecureChannelTest {
         resolvedDeviceId = "Tdevice-1",
         fingerprintHash = "fingerprint-1",
     )
+
+    @Test
+    fun `secure device context keeps deprecated risk aliases separate from evidence fields`() {
+        val context = SecureDeviceContext(
+            installId = "install-1",
+            resolvedDeviceId = "Tdevice-1",
+            fingerprintHash = "fingerprint-1",
+            riskSignals = setOf("root.basic"),
+            nativeRiskTags = setOf("hook.frida.native"),
+            evidenceSignals = setOf("root.su_or_busybox_path_present"),
+            nativeFactTags = setOf("runtime.frida.evidence"),
+        )
+
+        assertEquals(setOf("root.su_or_busybox_path_present"), context.evidenceSignals)
+        assertEquals(setOf("runtime.frida.evidence"), context.nativeFactTags)
+        assertEquals(setOf("root.basic"), context.riskSignals)
+        assertEquals(setOf("hook.frida.native"), context.nativeRiskTags)
+    }
 
     private fun parseServerTamperPolicy(json: String): TamperPolicy {
         val companion = SecureChannel::class.java.getDeclaredField("Companion").get(null)

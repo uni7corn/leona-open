@@ -5,6 +5,7 @@
 package io.leonasec.leona.internal.identity
 
 import io.leonasec.leona.LeonaDeviceEnvironmentEvidence
+import io.leonasec.leona.internal.ClientEvidenceSignalMapper
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -31,6 +32,9 @@ internal data class DeviceFingerprintSnapshot(
     val riskSignals: Set<String>,
     val deviceEnvironmentEvidence: LeonaDeviceEnvironmentEvidence = LeonaDeviceEnvironmentEvidence.EMPTY,
 ) {
+    val evidenceSignals: Set<String>
+        get() = ClientEvidenceSignalMapper.toEvidenceSignals(riskSignals)
+
     fun toJson(): String = JSONObject()
         .put("generatedAtMillis", generatedAtMillis)
         .put("installId", installId)

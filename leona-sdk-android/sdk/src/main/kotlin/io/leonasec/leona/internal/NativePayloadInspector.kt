@@ -15,7 +15,12 @@ internal object NativePayloadInspector {
 
     data class NativeRiskSummary(
         val findings: List<NativeFinding>,
+        @Deprecated(
+            message = "Use factTags. Client-side native risk tags are low-trust telemetry aliases.",
+            replaceWith = ReplaceWith("factTags"),
+        )
         val riskTags: Set<String>,
+        val factTags: Set<String>,
         val highestSeverity: Int?,
     ) {
         val findingIds: List<String> = findings.map(NativeFinding::id)
@@ -25,6 +30,7 @@ internal object NativePayloadInspector {
             val EMPTY = NativeRiskSummary(
                 findings = emptyList(),
                 riskTags = emptySet(),
+                factTags = emptySet(),
                 highestSeverity = null,
             )
         }
@@ -63,6 +69,7 @@ internal object NativePayloadInspector {
             NativeRiskSummary(
                 findings = findings,
                 riskTags = findings.flatMapTo(linkedSetOf(), ::riskTagsFor),
+                factTags = findings.flatMapTo(linkedSetOf(), ::factTagsFor),
                 highestSeverity = findings.maxOfOrNull { it.severity },
             )
         }.getOrDefault(NativeRiskSummary.EMPTY)
@@ -158,6 +165,25 @@ internal object NativePayloadInspector {
                             ".grant_uri_permission_" in id -> add("tamper.code_or_manifest.native")
                     }
                 }
+            }
+        }
+    }
+
+    private fun factTagsFor(finding: NativeFinding): Set<String> {
+        val id = finding.id
+        return buildSet {
+            when {
+                id.startsWith("injection.frida.") || id.startsWith("frida.") -> add("runtime.frida.evidence")
+                id.startsWith("injection.ptrace.") -> add("runtime.ptrace.evidence")
+                id.startsWith("injection.") -> add("runtime.injection.evidence")
+                id.startsWith("xposed.") -> add("runtime.xposed.evidence")
+                id.startsWith("root.") -> add("device.root.evidence")
+                id.startsWith("environment.emulator.") ||
+                    id == "environment.emulator" ||
+                    id.startsWith("env.emulator.") ||
+                    id == "env.emulator" -> add("environment.emulator.evidence")
+                id.startsWith("unidbg.") -> add("environment.unidbg.evidence")
+                id.startsWith("tamper.") -> add("app.integrity.evidence")
             }
         }
     }

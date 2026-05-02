@@ -28,12 +28,14 @@ class LeonaSupportBundleTest {
             timeZoneId = "Asia/Shanghai",
             screenSummary = "1080x2400@440",
             localRiskSignals = setOf("root.basic"),
+            evidenceSignals = setOf("root.su_or_busybox_path_present"),
             deviceEnvironmentEvidence = LeonaDeviceEnvironmentEvidence(
                 evidenceIds = setOf("build.tags.test_keys", "verified_boot.orange"),
                 build = mapOf("tags" to "test-keys"),
                 verifiedBoot = mapOf("state" to "orange"),
             ),
             nativeRiskTags = setOf("hook.frida.native"),
+            nativeFactTags = setOf("runtime.frida.evidence"),
             nativeFindingIds = listOf("injection.frida.known_library"),
             nativeHighestSeverity = 3,
             nativeEventCount = 1,
@@ -124,6 +126,22 @@ class LeonaSupportBundleTest {
 
         assertEquals("tenant-a", obj.getString("tenantId"))
         assertEquals("Tdevice", obj.getJSONObject("diagnosticSnapshot").getString("deviceId"))
+        assertEquals(
+            "root.su_or_busybox_path_present",
+            obj.getJSONObject("diagnosticSnapshot").getJSONArray("evidenceSignals").getString(0),
+        )
+        assertEquals(
+            "root.basic",
+            obj.getJSONObject("diagnosticSnapshot").getJSONArray("localRiskSignals").getString(0),
+        )
+        assertEquals(
+            "runtime.frida.evidence",
+            obj.getJSONObject("diagnosticSnapshot").getJSONArray("nativeFactTags").getString(0),
+        )
+        assertEquals(
+            "hook.frida.native",
+            obj.getJSONObject("diagnosticSnapshot").getJSONArray("nativeRiskTags").getString(0),
+        )
         assertEquals("LOW", obj.getJSONObject("serverVerdict").getString("riskLevel"))
         assertEquals(
             "io.leonasec.demo",

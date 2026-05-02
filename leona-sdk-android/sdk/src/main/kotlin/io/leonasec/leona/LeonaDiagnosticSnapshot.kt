@@ -2,8 +2,11 @@
  * Copyright 2026 Leona Contributors.
  * Licensed under the Apache License, Version 2.0.
  */
+@file:Suppress("DEPRECATION")
+
 package io.leonasec.leona
 
+import io.leonasec.leona.internal.ClientEvidenceSignalMapper
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -27,9 +30,19 @@ data class LeonaDiagnosticSnapshot(
     val localeTag: String,
     val timeZoneId: String,
     val screenSummary: String?,
+    @Deprecated(
+        message = "Use evidenceSignals. Client-side risk signals are low-trust telemetry aliases.",
+        replaceWith = ReplaceWith("evidenceSignals"),
+    )
     val localRiskSignals: Set<String>,
+    val evidenceSignals: Set<String> = ClientEvidenceSignalMapper.toEvidenceSignals(localRiskSignals),
     val deviceEnvironmentEvidence: LeonaDeviceEnvironmentEvidence = LeonaDeviceEnvironmentEvidence.EMPTY,
+    @Deprecated(
+        message = "Use nativeFactTags. Client-side native risk tags are low-trust telemetry aliases.",
+        replaceWith = ReplaceWith("nativeFactTags"),
+    )
     val nativeRiskTags: Set<String>,
+    val nativeFactTags: Set<String> = nativeRiskTags,
     val nativeFindingIds: List<String>,
     val nativeHighestSeverity: Int?,
     val nativeEventCount: Int,
@@ -40,6 +53,13 @@ data class LeonaDiagnosticSnapshot(
     val serverRiskTags: Set<String>,
     val lastBoxId: String?,
 ) {
+    @Deprecated(
+        message = "Use evidenceSignals.",
+        replaceWith = ReplaceWith("evidenceSignals"),
+    )
+    val localEvidenceSignals: Set<String>
+        get() = evidenceSignals
+
     fun toJsonObject(view: LeonaDebugExportView = LeonaDebugExportView.REDACTED): JSONObject =
         when (view) {
             LeonaDebugExportView.FULL_DEBUG -> fullJsonObject()
@@ -62,8 +82,10 @@ data class LeonaDiagnosticSnapshot(
         .put("localeTag", localeTag)
         .put("timeZoneId", timeZoneId)
         .put("screenSummary", screenSummary)
+        .put("evidenceSignals", JSONArray(evidenceSignals.toList().sorted()))
         .put("localRiskSignals", JSONArray(localRiskSignals.toList().sorted()))
         .put("deviceEnvironmentEvidence", deviceEnvironmentEvidence.toJsonObject(LeonaDebugExportView.FULL_DEBUG))
+        .put("nativeFactTags", JSONArray(nativeFactTags.toList().sorted()))
         .put("nativeRiskTags", JSONArray(nativeRiskTags.toList().sorted()))
         .put("nativeFindingIds", JSONArray(nativeFindingIds))
         .put("nativeHighestSeverity", nativeHighestSeverity)
@@ -89,8 +111,10 @@ data class LeonaDiagnosticSnapshot(
         .put("localeTag", localeTag)
         .put("timeZoneId", timeZoneId)
         .put("screenSummary", screenSummary)
+        .put("evidenceSignals", JSONArray(evidenceSignals.toList().sorted()))
         .put("localRiskSignals", JSONArray(localRiskSignals.toList().sorted()))
         .put("deviceEnvironmentEvidence", deviceEnvironmentEvidence.toJsonObject(LeonaDebugExportView.REDACTED))
+        .put("nativeFactTags", JSONArray(nativeFactTags.toList().sorted()))
         .put("nativeRiskTags", JSONArray(nativeRiskTags.toList().sorted()))
         .put("nativeFindingIds", JSONArray(nativeFindingIds))
         .put("nativeHighestSeverity", nativeHighestSeverity)

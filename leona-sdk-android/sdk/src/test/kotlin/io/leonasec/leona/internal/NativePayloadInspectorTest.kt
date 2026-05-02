@@ -2,6 +2,8 @@
  * Copyright 2026 Leona Contributors.
  * Licensed under the Apache License, Version 2.0.
  */
+@file:Suppress("DEPRECATION")
+
 package io.leonasec.leona.internal
 
 import org.junit.Assert.assertEquals
@@ -61,6 +63,9 @@ class NativePayloadInspectorTest {
         assertTrue("expected signature tag", "signature.untrusted.native" in summary.riskTags)
         assertTrue("expected unidbg tag", "environment.unidbg.native" in summary.riskTags)
         assertTrue("expected emulator tag", "environment.emulator.native" in summary.riskTags)
+        assertTrue("expected frida fact", "runtime.frida.evidence" in summary.factTags)
+        assertTrue("expected tamper fact", "app.integrity.evidence" in summary.factTags)
+        assertTrue("expected emulator fact", "environment.emulator.evidence" in summary.factTags)
     }
 
     @Test
@@ -68,6 +73,7 @@ class NativePayloadInspectorTest {
         val summary = NativePayloadInspector.inspect("not-a-leona-payload".toByteArray())
         assertEquals(0, summary.eventCount)
         assertTrue(summary.riskTags.isEmpty())
+        assertTrue(summary.factTags.isEmpty())
     }
 
     @Test
