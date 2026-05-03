@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -37,13 +38,42 @@ namespace leona::detection {
 
 namespace {
 
+#if defined(LEONA_ENVIRONMENT_HOST_TEST)
+std::string host_fixture_key(const char* prefix, const char* value) {
+  std::string out(prefix);
+  out += "_";
+  for (const char* p = value; p && *p; ++p) {
+    const unsigned char c = static_cast<unsigned char>(*p);
+    out += std::isalnum(c) ? static_cast<char>(std::toupper(c)) : '_';
+  }
+  return out;
+}
+
+std::string host_fixture_value(const char* prefix, const char* value) {
+  const std::string key = host_fixture_key(prefix, value);
+  const char* fixture = std::getenv(key.c_str());
+  return fixture ? std::string(fixture) : std::string();
+}
+#endif
+
 std::string read_prop(const char* key) {
+#if defined(LEONA_ENVIRONMENT_HOST_TEST)
+  const std::string fixture = host_fixture_value("LEONA_ENV_PROP", key);
+  if (!fixture.empty()) return fixture;
+#endif
   char buf[PROP_VALUE_MAX] = {};
   __system_property_get(key, buf);
   return std::string(buf);
 }
 
 std::string read_file_prefix(const char* path, size_t max_bytes = 64 * 1024) {
+#if defined(LEONA_ENVIRONMENT_HOST_TEST)
+  std::string fixture = host_fixture_value("LEONA_ENV_FILE", path);
+  if (!fixture.empty()) {
+    if (fixture.size() > max_bytes) fixture.resize(max_bytes);
+    return fixture;
+  }
+#endif
   FILE* f = std::fopen(path, "r");
   if (!f) return {};
 
@@ -307,6 +337,36 @@ void check_cpu_virtualization(EventList& out) {
 }
 
 void check_sysfs_virtual_devices(EventList& out) {
+#if defined(LEONA_ENVIRONMENT_HOST_TEST)
+  const std::string fixture = host_fixture_value(
+      "LEONA_ENV_DIR", "/sys/bus/virtio/devices");
+  if (!fixture.empty()) {
+    size_t virtio_count = 0;
+    std::string sample;
+    size_t line_start = 0;
+    while (line_start < fixture.size()) {
+      const size_t line_end = fixture.find('\n', line_start);
+      const size_t end =
+          line_end == std::string::npos ? fixture.size() : line_end;
+      const std::string name = fixture.substr(line_start, end - line_start);
+      if (name.rfind("virtio", 0) == 0) {
+        ++virtio_count;
+        if (sample.empty()) sample = name;
+      }
+      if (line_end == std::string::npos) break;
+      line_start = line_end + 1;
+    }
+    if (virtio_count > 0) {
+      EvidenceBuilder ev;
+      ev.add("path", "/sys/bus/virtio/devices");
+      ev.add("deviceCount", static_cast<uint64_t>(virtio_count));
+      ev.add("sample", sample);
+      add_event(out, "env.emulator.sysfs.virtio_devices", Severity::MEDIUM,
+                "Virtio devices are exposed to the Android guest", ev);
+    }
+    return;
+  }
+#endif
   DIR* dir = ::opendir("/sys/bus/virtio/devices");
   if (!dir) return;
 

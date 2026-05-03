@@ -37,3 +37,18 @@ mkdir -p "$OUT_DIR"
   -o "$OUT_DIR/environment_metadata_redaction_test"
 
 "$OUT_DIR/environment_metadata_redaction_test"
+
+"$CXX_BIN" \
+  -std=c++17 \
+  -Wall \
+  -Wextra \
+  -Werror \
+  -DLEONA_ENVIRONMENT_HOST_TEST=1 \
+  -I"$TEST_DIR/fakes" \
+  -I"$CPP_DIR" \
+  "$TEST_DIR/environment_custom_rom_negative_test.cpp" \
+  "$CPP_DIR/detection/environment_detector.cpp" \
+  "$CPP_DIR/util/evidence_builder.cpp" \
+  -o "$OUT_DIR/environment_custom_rom_negative_test"
+
+"$OUT_DIR/environment_custom_rom_negative_test"

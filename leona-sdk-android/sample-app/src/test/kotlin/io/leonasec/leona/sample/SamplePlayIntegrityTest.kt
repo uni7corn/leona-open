@@ -5,7 +5,7 @@
 package io.leonasec.leona.sample
 
 import io.leonasec.leona.config.PlayIntegrityTokenRequest
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,6 +26,7 @@ class SamplePlayIntegrityTest {
         assertTrue(token.contains("\"appRecognitionVerdict\":\"PLAY_RECOGNIZED\""))
         assertTrue(token.contains("\"deviceRecognitionVerdict\":[\"MEETS_DEVICE_INTEGRITY\"]"))
         assertTrue(token.contains("\"cloudProjectNumber\":123456789"))
-        assertTrue(token.contains("\"installId\":\"install-1\""))
+        assertTrue(token.contains("\"installIdSha256\":\"install-1\""))
+        assertFalse(token.contains("\"installId\":\"install-1\""))
     }
 }

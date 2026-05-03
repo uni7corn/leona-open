@@ -15,6 +15,12 @@ package io.leonasec.leona.config
 data class PlayIntegrityTokenRequest(
     val requestHash: String,
     val challenge: String,
+    /**
+     * Stable install identity handle bound into [requestHash]. The property
+     * keeps the historical name for source compatibility; secure-reporting
+     * flows pass the SHA-256 install-id handle here, not the raw local install
+     * id.
+     */
     val installId: String,
     val cloudProjectNumber: Long? = null,
 )

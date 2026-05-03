@@ -12,6 +12,15 @@ package io.leonasec.leona.config
  * stack, or a custom enterprise attestation flow.
  */
 interface AttestationProvider {
+    /**
+     * Produces an attestation statement bound to [challenge].
+     *
+     * [installId] is the stable install identity handle included in the
+     * challenge contract. In secure-reporting/private-engine flows this value
+     * is the SHA-256 install-id handle, not the raw SDK-local install id.
+     * Providers should forward or bind it exactly as their server-side
+     * verifier expects and must not assume it is raw device-local state.
+     */
     suspend fun attest(challenge: String, installId: String): AttestationStatement?
 }
 

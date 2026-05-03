@@ -99,42 +99,98 @@ class NativePayloadInspectorTest {
     }
 
     @Test
-    fun `rom bootloader verified boot and build facts do not become emulator risk tags`() {
+    fun `rom build bootloader native facts remain neutral risk telemetry`() {
         val payload = buildPayload(
             Event(
                 id = "rom.custom_aosp_like",
-                severity = 1,
+                severity = 3,
                 category = 2,
                 message = "custom ROM evidence",
                 evidence = "family=lineage",
             ),
             Event(
+                id = "gsi.running",
+                severity = 3,
+                category = 2,
+                message = "GSI evidence",
+                evidence = "imageRunning=true",
+            ),
+            Event(
                 id = "bootloader.unlocked",
-                severity = 1,
+                severity = 3,
                 category = 2,
                 message = "bootloader state",
                 evidence = "flashLocked=0",
             ),
             Event(
                 id = "verified_boot.orange",
-                severity = 1,
+                severity = 3,
                 category = 2,
                 message = "verified boot state",
                 evidence = "state=orange",
             ),
             Event(
+                id = "vbmeta.unlocked",
+                severity = 3,
+                category = 2,
+                message = "vbmeta state",
+                evidence = "deviceState=unlocked",
+            ),
+            Event(
                 id = "build.tags.test_keys",
-                severity = 1,
+                severity = 3,
                 category = 2,
                 message = "build tags",
                 evidence = "tags=test-keys",
+            ),
+            Event(
+                id = "build.type.userdebug_or_eng",
+                severity = 3,
+                category = 2,
+                message = "build type",
+                evidence = "type=userdebug",
             ),
         )
 
         val summary = NativePayloadInspector.inspect(payload)
 
-        assertEquals(4, summary.eventCount)
-        assertTrue("ROM facts should not imply emulator risk", "environment.emulator.native" !in summary.riskTags)
+        assertEquals(7, summary.eventCount)
+        assertEquals(
+            listOf(
+                "rom.custom_aosp_like",
+                "gsi.running",
+                "bootloader.unlocked",
+                "verified_boot.orange",
+                "vbmeta.unlocked",
+                "build.tags.test_keys",
+                "build.type.userdebug_or_eng",
+            ),
+            summary.findingIds,
+        )
+
+        val forbidden = setOf(
+            "environment.emulator.native",
+            "environment.unidbg.native",
+            "root.native",
+            "hook.frida.native",
+            "hook.injection.native",
+            "hook.xposed.native",
+            "tamper.native",
+            "signature.untrusted.native",
+            "installer.untrusted.native",
+            "app.debuggable.native",
+        )
+        assertTrue(
+            "ROM facts should not imply risk tags: ${summary.riskTags}",
+            summary.riskTags.intersect(forbidden).isEmpty(),
+        )
+        assertFalse("ROM facts should not create risk.* tags", summary.riskTags.any { it.startsWith("risk.") })
+        assertFalse(
+            "ROM facts should not create critical/block tags",
+            summary.riskTags.any {
+                it.contains("critical", ignoreCase = true) || it.contains("block", ignoreCase = true)
+            },
+        )
     }
 
     @Test

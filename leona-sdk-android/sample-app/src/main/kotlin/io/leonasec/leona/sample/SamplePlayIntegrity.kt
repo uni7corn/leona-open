@@ -76,7 +76,7 @@ object SamplePlayIntegrity {
         append("\"deviceRecognitionVerdict\":[\"MEETS_DEVICE_INTEGRITY\"]")
         append("},")
         append("\"mode\":\"debug_fake\",")
-        append("\"installId\":\"").append(jsonEscape(request.installId)).append("\"")
+        append("\"installIdSha256\":\"").append(jsonEscape(request.installId)).append("\"")
         request.cloudProjectNumber?.let {
             append(",\"cloudProjectNumber\":").append(it)
         }
