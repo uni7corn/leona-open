@@ -92,6 +92,26 @@ android {
                 leonaSamplePlayIntegrityCloudProjectNumber.quoted(),
             )
         }
+        create("cloudTest") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("String", "LEONA_API_KEY", leonaApiKey.quoted())
+            buildConfigField("String", "LEONA_TENANT_ID", leonaTenantId.quoted())
+            buildConfigField("String", "LEONA_REPORTING_ENDPOINT", leonaReportingEndpoint.quoted())
+            buildConfigField("String", "LEONA_CLOUD_CONFIG_ENDPOINT", leonaCloudConfigEndpoint.quoted())
+            buildConfigField("String", "LEONA_DEMO_BACKEND_BASE_URL", leonaDemoBackendBaseUrl.quoted())
+            buildConfigField("String", "LEONA_E2E_TOKEN", "\"\"")
+            buildConfigField("String", "LEONA_SAMPLE_ATTESTATION_MODE", leonaSampleAttestationMode.quoted())
+            buildConfigField("Boolean", "LEONA_VERBOSE_NATIVE_LOGGING", "false")
+            buildConfigField(
+                "String",
+                "LEONA_SAMPLE_PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER",
+                leonaSamplePlayIntegrityCloudProjectNumber.quoted(),
+            )
+        }
     }
 
     compileOptions {
@@ -116,6 +136,9 @@ android {
             kotlin.srcDirs("src/debug/kotlin")
         }
         getByName("release") {
+            kotlin.srcDirs("src/release/kotlin")
+        }
+        getByName("cloudTest") {
             kotlin.srcDirs("src/release/kotlin")
         }
     }
