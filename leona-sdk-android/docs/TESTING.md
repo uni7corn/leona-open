@@ -44,6 +44,10 @@ The sample release build also rejects debug/test-only Gradle properties such as
 `LEONA_API_KEY`, `LEONA_E2E_TOKEN`, and fake attestation modes so those values
 cannot be embedded into a distributable APK by accident.
 
+For cloud-device validation on WeTest, use `docs/wetest-matrix-runbook.md`.
+Release/non-debug sample APKs are suitable for package posture checks, while
+debug/staging APKs are reserved for controlled logcat E2E collection.
+
 To validate an already-installed debug sample without reinstalling it or reading
 the UI, run the installed-sample logcat smoke test:
 
@@ -114,6 +118,8 @@ Use devices and tooling that you own or are explicitly allowed to test.
 - For custom AOSP, community ROMs, GSI, and bootloader-unlocked devices, see
   `docs/rom-matrix.md` and start with the read-only
   `scripts/collect-device-posture.sh` posture collector.
+- For WeTest cloud-device and non-debug release package posture collection, see
+  `docs/wetest-matrix-runbook.md`.
 - Android Studio emulator, MuMu, LDPlayer, Nox, BlueStacks, and Genymotion
   should produce emulator-related signals for server-side evaluation.
 - Frida, Xposed/LSPosed, Magisk/KernelSU, and Unidbg tests should produce

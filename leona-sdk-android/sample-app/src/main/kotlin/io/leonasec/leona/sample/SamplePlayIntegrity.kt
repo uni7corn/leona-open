@@ -42,61 +42,20 @@ object SamplePlayIntegrity {
         val cloudProjectNumber = BuildConfig.LEONA_SAMPLE_PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER
             .trim()
             .toLongOrNull()
-        return when (mode) {
-            MODE_OFF -> null
-            MODE_DEBUG_FAKE -> {
-                check(BuildConfig.DEBUG) { "debug_fake attestation is only available in debug builds." }
-                PlayIntegrityAttestationProvider(
-                    tokenProvider = PlayIntegrityTokenProvider(::buildDebugToken),
-                    cloudProjectNumber = cloudProjectNumber,
-                )
+        return SamplePlayIntegrityDebugProvider.createProvider(mode, cloudProjectNumber)
+            ?: when (mode) {
+                MODE_OFF -> null
+                MODE_BRIDGE -> bridge?.let { installed ->
+                    PlayIntegrityAttestationProvider(
+                        tokenProvider = PlayIntegrityTokenProvider(installed::requestToken),
+                        cloudProjectNumber = cloudProjectNumber,
+                    )
+                }
+
+                else -> null
             }
-
-            MODE_BRIDGE -> bridge?.let { installed ->
-                PlayIntegrityAttestationProvider(
-                    tokenProvider = PlayIntegrityTokenProvider(installed::requestToken),
-                    cloudProjectNumber = cloudProjectNumber,
-                )
-            }
-
-            else -> null
-        }
-    }
-
-    internal fun buildDebugToken(request: PlayIntegrityTokenRequest): String = buildString {
-        append('{')
-        append("\"requestDetails\":{")
-        append("\"requestHash\":\"").append(jsonEscape(request.requestHash)).append("\",")
-        append("\"timestampMillis\":").append(System.currentTimeMillis())
-        append("},")
-        append("\"appIntegrity\":{")
-        append("\"appRecognitionVerdict\":\"PLAY_RECOGNIZED\"")
-        append("},")
-        append("\"deviceIntegrity\":{")
-        append("\"deviceRecognitionVerdict\":[\"MEETS_DEVICE_INTEGRITY\"]")
-        append("},")
-        append("\"mode\":\"debug_fake\",")
-        append("\"installIdSha256\":\"").append(jsonEscape(request.installId)).append("\"")
-        request.cloudProjectNumber?.let {
-            append(",\"cloudProjectNumber\":").append(it)
-        }
-        append('}')
-    }
-
-    private fun jsonEscape(value: String): String = buildString(value.length + 8) {
-        value.forEach { ch ->
-            when (ch) {
-                '\\' -> append("\\\\")
-                '"' -> append("\\\"")
-                '\n' -> append("\\n")
-                '\r' -> append("\\r")
-                '\t' -> append("\\t")
-                else -> append(ch)
-            }
-        }
     }
 
     private const val MODE_OFF = "off"
-    private const val MODE_DEBUG_FAKE = "debug_fake"
     private const val MODE_BRIDGE = "bridge"
 }

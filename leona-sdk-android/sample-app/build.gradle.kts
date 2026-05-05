@@ -17,16 +17,18 @@ val leonaSampleEnableRealPlayIntegrityDep =
 
 fun String.quoted(): String = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
-val debugOnlySampleProperties = mapOf(
-    "LEONA_API_KEY" to leonaApiKey,
-    "LEONA_E2E_TOKEN" to leonaE2EToken,
-    "LEONA_SAMPLE_ATTESTATION_MODE" to leonaSampleAttestationMode,
-)
-
 tasks.register("guardSampleReleaseBuild") {
     group = "verification"
     description = "Fail sample release builds that would embed debug/test-only configuration."
+    inputs.property("leonaApiKey", leonaApiKey)
+    inputs.property("leonaE2EToken", leonaE2EToken)
+    inputs.property("leonaSampleAttestationMode", leonaSampleAttestationMode)
     doLast {
+        val debugOnlySampleProperties = mapOf(
+            "LEONA_API_KEY" to inputs.properties["leonaApiKey"]?.toString().orEmpty(),
+            "LEONA_E2E_TOKEN" to inputs.properties["leonaE2EToken"]?.toString().orEmpty(),
+            "LEONA_SAMPLE_ATTESTATION_MODE" to inputs.properties["leonaSampleAttestationMode"]?.toString().orEmpty(),
+        )
         val unsafe = debugOnlySampleProperties.filterValues { value -> value.isNotBlank() && value != "off" }
         if (unsafe.isNotEmpty()) {
             throw GradleException(
@@ -109,6 +111,12 @@ android {
     sourceSets {
         getByName("main") {
             kotlin.srcDirs("src/main/kotlin")
+        }
+        getByName("debug") {
+            kotlin.srcDirs("src/debug/kotlin")
+        }
+        getByName("release") {
+            kotlin.srcDirs("src/release/kotlin")
         }
     }
 }

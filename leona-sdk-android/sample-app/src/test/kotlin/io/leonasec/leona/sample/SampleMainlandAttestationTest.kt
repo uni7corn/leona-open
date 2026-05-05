@@ -11,7 +11,7 @@ class SampleMainlandAttestationTest {
 
     @Test
     fun debugTokenContainsExpectedOemEnvelopeFields() {
-        val token = SampleMainlandAttestation.buildDebugToken(
+        val token = SampleMainlandDebugAttestation.buildDebugToken(
             SampleMainlandAttestation.Request(
                 challenge = "abc123",
                 installIdSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",

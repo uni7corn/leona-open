@@ -20,7 +20,7 @@ class SamplePlayIntegrityTest {
             cloudProjectNumber = 123456789L,
         )
 
-        val token = SamplePlayIntegrity.buildDebugToken(request)
+        val token = SamplePlayIntegrityDebugProvider.buildDebugToken(request)
 
         assertTrue(token.contains("\"requestHash\":\"challenge-abc\""))
         assertTrue(token.contains("\"appRecognitionVerdict\":\"PLAY_RECOGNIZED\""))

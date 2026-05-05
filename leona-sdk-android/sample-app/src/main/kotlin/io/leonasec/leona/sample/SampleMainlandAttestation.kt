@@ -51,33 +51,11 @@ object SampleMainlandAttestation {
 
     fun createProvider(context: Context): AttestationProvider? {
         val mode = BuildConfig.LEONA_SAMPLE_ATTESTATION_MODE.trim().lowercase()
-        return when (mode) {
-            MODE_OEM_DEBUG_FAKE -> {
-                check(BuildConfig.DEBUG) { "oem_debug_fake attestation is only available in debug builds." }
-                debugProvider(context)
+        return SampleMainlandDebugAttestation.createProvider(context, mode)
+            ?: when (mode) {
+                MODE_OEM_BRIDGE -> bridgeProvider(context)
+                else -> null
             }
-            MODE_OEM_BRIDGE -> bridgeProvider(context)
-            else -> null
-        }
-    }
-
-    private fun debugProvider(context: Context): AttestationProvider = object : AttestationProvider {
-        override suspend fun attest(challenge: String, installId: String): AttestationStatement =
-            AttestationStatement(
-                format = OEM_ATTESTATION_FORMAT,
-                token = buildDebugToken(
-                    Request(
-                        challenge = challenge,
-                        installIdSha256 = installId,
-                        packageName = context.packageName,
-                        manufacturer = Build.MANUFACTURER.orEmpty(),
-                        brand = Build.BRAND.orEmpty(),
-                        model = Build.MODEL.orEmpty(),
-                        sdkInt = Build.VERSION.SDK_INT,
-                        issuedAtMillis = System.currentTimeMillis(),
-                    ),
-                ),
-            )
     }
 
     private fun bridgeProvider(context: Context): AttestationProvider? {
@@ -118,40 +96,6 @@ object SampleMainlandAttestation {
         }
     }
 
-    internal fun buildDebugToken(request: Request): String = buildString {
-        append('{')
-        append("\"version\":1,")
-        append("\"provider\":\"sample_mainland_debug\",")
-        append("\"trustTier\":\"oem_attested\",")
-        append("\"issuedAtMillis\":").append(request.issuedAtMillis).append(',')
-        append("\"challenge\":\"").append(jsonEscape(request.challenge)).append("\",")
-        append("\"installIdSha256\":\"").append(jsonEscape(request.installIdSha256)).append("\",")
-        append("\"packageName\":\"").append(jsonEscape(request.packageName)).append("\",")
-        append("\"evidenceLabels\":[\"debug_fake\",\"non_gms_sample\"],")
-        append("\"claims\":{")
-        append("\"manufacturer\":\"").append(jsonEscape(request.manufacturer)).append("\",")
-        append("\"brand\":\"").append(jsonEscape(request.brand)).append("\",")
-        append("\"model\":\"").append(jsonEscape(request.model)).append("\",")
-        append("\"sdkInt\":\"").append(request.sdkInt).append("\"")
-        append("},")
-        append("\"mode\":\"oem_debug_fake\"")
-        append('}')
-    }
-
-    private fun jsonEscape(value: String): String = buildString(value.length + 8) {
-        value.forEach { ch ->
-            when (ch) {
-                '\\' -> append("\\\\")
-                '"' -> append("\\\"")
-                '\n' -> append("\\n")
-                '\r' -> append("\\r")
-                '\t' -> append("\\t")
-                else -> append(ch)
-            }
-        }
-    }
-
     private const val OEM_ATTESTATION_FORMAT = "oem_attestation"
-    private const val MODE_OEM_DEBUG_FAKE = "oem_debug_fake"
     private const val MODE_OEM_BRIDGE = "oem_bridge"
 }
