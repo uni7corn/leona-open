@@ -93,7 +93,7 @@ launch_sample_e2e() {
   if [[ "$LEONA_SKIP_FORCE_STOP" != "1" ]]; then
     adb -s "$ADB_SERIAL" shell am force-stop "$APP_ID" >/dev/null
   fi
-  adb -s "$ADB_SERIAL" shell am start \
+  adb -s "$ADB_SERIAL" shell am start -W \
     -n "$APP_ID/$APP_ACTIVITY" \
     --ez "$E2E_AUTO_RUN_EXTRA" true \
     --es "$E2E_TOKEN_EXTRA" "$LEONA_E2E_TOKEN" >/dev/null
@@ -239,6 +239,7 @@ parse_logcat_e2e() {
   REPORT_PATH="$report_path" \
   SUMMARY_PATH="$summary_path" \
   REQUIRED_EVENTS="$LEONA_REQUIRED_EVENTS" \
+  LOGCAT_MIN_LINE="${LOGCAT_MIN_LINE:-0}" \
   python3 - "$log_file" <<'PY'
 import base64
 import hashlib
@@ -251,6 +252,10 @@ from pathlib import Path
 log_path = Path(sys.argv[1])
 report_path = Path(os.environ["REPORT_PATH"])
 summary_path = Path(os.environ["SUMMARY_PATH"])
+try:
+    min_line = int(os.environ.get("LOGCAT_MIN_LINE") or "0")
+except ValueError:
+    min_line = 0
 required = [
     item.strip()
     for item in os.environ.get("REQUIRED_EVENTS", "").split(",")
@@ -258,7 +263,9 @@ required = [
 ]
 
 chunks_by_run = {}
-for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+for line_no, line in enumerate(log_path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+    if line_no <= min_line:
+        continue
     text = line.strip()
     if not text.startswith("{"):
         continue
@@ -499,25 +506,37 @@ wait_for_device
 require_installed_sample
 
 LOG_FILE="$OUTPUT_DIR/logcat.txt"
+LOGCAT_SINCE=""
 if [[ "$LEONA_SKIP_LOGCAT_CLEAR" != "1" ]]; then
   adb -s "$ADB_SERIAL" logcat -c
+else
+  LOGCAT_SINCE="$(adb -s "$ADB_SERIAL" shell date '+%m-%d %H:%M:%S.000' 2>/dev/null | tr -d '\r' || true)"
 fi
 
 trap cleanup_logcat EXIT
-adb -s "$ADB_SERIAL" logcat -v raw -s LeonaE2E:I '*:S' > "$LOG_FILE" &
+if [[ -n "$LOGCAT_SINCE" ]]; then
+  adb -s "$ADB_SERIAL" logcat -T "$LOGCAT_SINCE" -v raw -s LeonaE2E:I '*:S' > "$LOG_FILE" &
+else
+  adb -s "$ADB_SERIAL" logcat -v raw -s LeonaE2E:I '*:S' > "$LOG_FILE" &
+fi
 LOGCAT_PID="$!"
+
+# Some Android builds do not allow `adb logcat -c`; when using `-T`, logcat can still
+# flush a small backlog immediately. Keep the parse/wait window tied to this run.
+sleep 1
+LOGCAT_MIN_LINE="$(wc -l < "$LOG_FILE" 2>/dev/null | tr -d ' ' || printf '0')"
 
 launch_sample_e2e
 
 deadline=$(( $(date +%s) + LEONA_LOGCAT_TIMEOUT_SEC ))
 while [[ "$(date +%s)" -lt "$deadline" ]]; do
-  if grep -q '"event":"complete"' "$LOG_FILE" 2>/dev/null; then
+  if tail -n +"$((LOGCAT_MIN_LINE + 1))" "$LOG_FILE" 2>/dev/null | grep -q '"event":"complete"'; then
     break
   fi
-  if grep -q '"event":"error"' "$LOG_FILE" 2>/dev/null; then
+  if tail -n +"$((LOGCAT_MIN_LINE + 1))" "$LOG_FILE" 2>/dev/null | grep -q '"event":"error"'; then
     break
   fi
-  if grep -q 'Ignoring unauthorized logcat E2E request' "$LOG_FILE" 2>/dev/null; then
+  if tail -n +"$((LOGCAT_MIN_LINE + 1))" "$LOG_FILE" 2>/dev/null | grep -q 'Ignoring unauthorized logcat E2E request'; then
     break
   fi
   sleep 1
@@ -528,8 +547,8 @@ trap - EXIT
 
 sanitize_logcat "$LOG_FILE"
 
-if ! grep -q '"event":"complete"' "$LOG_FILE" 2>/dev/null; then
-  if grep -q 'Ignoring unauthorized logcat E2E request' "$LOG_FILE" 2>/dev/null; then
+if ! tail -n +"$((LOGCAT_MIN_LINE + 1))" "$LOG_FILE" 2>/dev/null | grep -q '"event":"complete"'; then
+  if tail -n +"$((LOGCAT_MIN_LINE + 1))" "$LOG_FILE" 2>/dev/null | grep -q 'Ignoring unauthorized logcat E2E request'; then
     echo "The installed sample rejected the logcat E2E request. Rebuild/install it with the same LEONA_E2E_TOKEN." >&2
   else
     echo "Timed out waiting for LeonaE2E completion. Raw log: $LOG_FILE" >&2
