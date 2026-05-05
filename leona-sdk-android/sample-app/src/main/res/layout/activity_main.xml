@@ -356,7 +356,7 @@
                     android:layout_marginTop="12dp"
                     android:fontFamily="monospace"
                     android:textAppearance="?attr/textAppearanceBodySmall"
-                    tools:text="decision=allow&#10;risk=LOW&#10;score=12" />
+                    tools:text="采集状态=已采集环境信息&#10;证据等级=低强度证据&#10;证据分=12" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonToggleVerdictJson"
@@ -406,7 +406,7 @@
                         android:fontFamily="monospace"
                         android:text="@string/verdict_json_placeholder"
                         android:textAppearance="?attr/textAppearanceBodySmall"
-                        tools:text="{&#10;  &quot;decision&quot;: &quot;allow&quot;&#10;}" />
+                        tools:text="{&#10;  &quot;decision&quot;: &quot;evidence_collected&quot;&#10;}" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

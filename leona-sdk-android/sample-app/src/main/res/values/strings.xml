@@ -6,7 +6,7 @@
     <string name="server_mode_stub">本地模式（未配置后端）</string>
 
     <string name="sense_header">通过 sense() 生成 BoxId</string>
-    <string name="sense_help">采集不透明的环境检测载荷并返回 BoxId。生产环境中，App 将 BoxId 交给业务后端，由业务后端向 Leona 服务端查询判定结果。</string>
+    <string name="sense_help">采集不透明的环境检测载荷并返回 BoxId。生产环境中，App 将 BoxId 交给业务后端，由业务后端向 Leona 服务端查询设备环境证据。</string>
     <string name="device_id_placeholder">设备 ID:（解析中…）</string>
     <string name="device_id_fmt">设备 ID: %1$s</string>
     <string name="device_id_error_fmt">设备 ID 错误：%1$s</string>
@@ -42,35 +42,35 @@
     <string name="hide_consistency_json">收起一致性 JSON</string>
     <string name="copied_consistency_to_clipboard">一致性 JSON 已复制</string>
     <string name="share_consistency_title">分享 Leona 一致性报告</string>
-    <string name="copy_verdict_json">复制判定结果</string>
-    <string name="share_verdict_json">分享判定结果</string>
-    <string name="show_verdict_json">显示判定 JSON</string>
-    <string name="hide_verdict_json">收起判定 JSON</string>
-    <string name="copied_verdict_to_clipboard">服务端判定 JSON 已复制</string>
-    <string name="share_verdict_title">分享 Leona 判定结果</string>
-    <string name="verdict_json_placeholder">服务端判定 JSON：（尚未获取）</string>
+    <string name="copy_verdict_json">复制采集结果</string>
+    <string name="share_verdict_json">分享采集结果</string>
+    <string name="show_verdict_json">显示采集 JSON</string>
+    <string name="hide_verdict_json">收起采集 JSON</string>
+    <string name="copied_verdict_to_clipboard">服务端采集 JSON 已复制</string>
+    <string name="share_verdict_title">分享 Leona 采集结果</string>
+    <string name="verdict_json_placeholder">服务端采集 JSON：（尚未获取）</string>
     <string name="run_sense">运行 sense()</string>
-    <string name="query_demo_verdict">查询演示判定</string>
+    <string name="query_demo_verdict">查询演示采集结果</string>
     <string name="box_id_placeholder">BoxId:（尚未运行）</string>
     <string name="box_id_fmt">BoxId: %1$s</string>
     <string name="box_id_error_fmt">BoxId 错误：%1$s</string>
     <string name="verdict_need_box_id">请先运行 sense() 生成 BoxId。</string>
     <string name="verdict_backend_not_configured">BuildConfig 中未配置演示后端地址。</string>
-    <string name="verdict_result_fmt">判定=%1$s\n风险=%2$s\n评分=%3$d</string>
-    <string name="verdict_result_v2_fmt">判定=%1$s\n动作=%2$s\n风险=%3$s\n评分=%4$d\n标签=%5$s\ncanonical=%6$s</string>
-    <string name="verdict_error_fmt">判定错误：%1$s</string>
+    <string name="verdict_result_fmt">采集状态=%1$s\n证据等级=%2$s\n证据分=%3$d</string>
+    <string name="verdict_result_v2_fmt">采集状态=%1$s\n业务处理=%2$s\n证据等级=%3$s\n证据分=%4$s\n证据明细=%5$s\ncanonical=%6$s</string>
+    <string name="verdict_error_fmt">采集结果错误：%1$s</string>
 
     <string name="decoy_header">诱饵接口：quickCheck()</string>
-    <string name="decoy_help">这是有意保留的废弃接口，用来吸引逆向分析者修改一个假的判定面。它的返回值不具备权威性。</string>
+    <string name="decoy_help">这是有意保留的废弃接口，用来吸引逆向分析者修改一个假的决策面。它的返回值不具备权威性。</string>
     <string name="run_decoy">调用 quickCheck()</string>
     <string name="decoy_result_fmt">quickCheck 返回 %1$s</string>
 
     <string name="honeypot_header">蜜罐数据原语</string>
-    <string name="honeypot_help">当后端判定会话存在风险时，可返回看似真实但无价值的数据替代真实值。SDK 只提供材料，必须结合后端信号使用。</string>
+    <string name="honeypot_help">当业务后端按自身规则识别会话异常时，可返回看似真实但无价值的数据替代真实值。SDK 只提供材料，必须结合后端信号使用。</string>
     <string name="generate_honeypot">生成虚假用户</string>
     <string name="honeypot_result_fmt">id=%1$s\nemail=%2$s\nname=%3$s</string>
-    <string name="diagnostic_fmt">deviceId=%1$s\ninstallId=%2$s\ncanonical=%3$s\nfingerprint=%4$s\nevidence=%5$s\nnativeFacts=%6$s\nnativeSeverity=%7$s\nnativeFindings=%8$s\nserverDecision=%9$s\nserverAction=%10$s\nserverRiskLevel=%11$s\nserverRiskScore=%12$s\nserverRiskTags=%13$s\nlastBoxId=%14$s</string>
+    <string name="diagnostic_fmt">设备ID=%1$s\n安装ID=%2$s\ncanonical=%3$s\n指纹哈希=%4$s\n本地证据=%5$s\nNative事实=%6$s\nNative最高等级=%7$s\nNative明细=%8$s\n服务端采集状态=%9$s\n业务处理=%10$s\n服务端证据等级=%11$s\n服务端证据分=%12$s\n服务端证据明细=%13$s\nlastBoxId=%14$s</string>
     <string name="transport_fmt">engineAvailable=%1$s\nbindingPresent=%2$s\nbindingHardwareBacked=%3$s\nbindingPubKeySha256=%4$s\nsessionIdHint=%5$s\nsessionExpiresAt=%6$s\nsessionCanonical=%7$s\nsessionBindingStatus=%8$s\nserverAttestationProvider=%9$s\nserverAttestationStatus=%10$s\nserverAttestationCode=%11$s\nserverAttestationRetryable=%12$s\nattestationFormat=%13$s\nattestationTokenSha256=%14$s\nlastHandshakeError=%15$s\nlastHandshakeCode=%16$s\nlastHandshakeProvider=%17$s\nlastHandshakeRetryable=%18$s</string>
-    <string name="support_bundle_fmt">canonical=%1$s\neffectiveDisabled=%2$s\ncollectionWindowMs=%3$s\ncloudFetchedAt=%4$s\ncloudRawPresent=%5$s\ntransportCanonical=%6$s\nverdictCanonical=%7$s\ntransportBindingStatus=%8$s\nserverAttestationProvider=%9$s\nserverAttestationStatus=%10$s\nserverAttestationCode=%11$s</string>
-    <string name="consistency_fmt">device=%1$s\ntransport=%2$s\nverdict=%3$s\nbundle=%4$s\naligned=%5$s</string>
+    <string name="support_bundle_fmt">canonical=%1$s\n禁用采集项=%2$s\n采集窗口毫秒=%3$s\n云配置获取时间=%4$s\n云配置原文存在=%5$s\n传输canonical=%6$s\n采集结果canonical=%7$s\n传输绑定状态=%8$s\n服务端认证Provider=%9$s\n服务端认证状态=%10$s\n服务端认证Code=%11$s</string>
+    <string name="consistency_fmt">设备=%1$s\n传输=%2$s\n采集结果=%3$s\n支持包=%4$s\n是否一致=%5$s</string>
 </resources>

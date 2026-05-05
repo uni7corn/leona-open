@@ -14,7 +14,7 @@ Public content includes:
 - public-safe integration documentation
 - public Android SDK CI
 
-The public repository is enough for customers to integrate Leona into an APK, generate a `BoxId`, and send that `BoxId` through their own backend to the Leona hosted verdict API.
+The public repository is enough for customers to integrate Leona into an APK, generate a `BoxId`, and send that `BoxId` through their own backend to the Leona hosted environment-evidence API.
 
 ## 2. Closed-Source Scope
 
@@ -43,7 +43,7 @@ Closed-source directories must contain only README placeholders in public GitHub
 
 ## 4. Runtime Decision Rule
 
-The APK does not make authoritative risk decisions.
+Leona does not define customer business decisions.
 
 The client SDK:
 
@@ -54,10 +54,10 @@ The client SDK:
 
 The server side:
 
-- owns verdicts,
-- owns customer policy,
-- owns risk weights,
-- owns environment-specific decisions.
+- stores and returns evidence reports,
+- preserves source/trust/provenance metadata,
+- avoids allow/reject/block recommendations,
+- leaves customer policy and environment-specific decisions to the business caller.
 
 ## 5. Customer Integration Rule
 

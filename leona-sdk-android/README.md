@@ -2,7 +2,7 @@
 
 # 🛡️ Leona Android SDK
 
-**Runtime security for Android apps — no client-side decisions, no bypass-by-one-byte-patch.**
+**Device environment evidence collection for Android apps — no client-side decisions, no built-in business policy.**
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Min SDK](https://img.shields.io/badge/minSdk-21-brightgreen)]()
@@ -27,8 +27,8 @@ No public method on this SDK returns `hasCritical()`, `isTampered()`, or any
 other boolean that your app should trust. Every such method is a single-byte
 patch target. Leona's API gives you a single opaque **BoxId** per sensing
 session. Your *backend* exchanges that BoxId with Leona's server to get the
-authoritative verdict. Attackers can't reach your backend; they can reach
-every line of your APK.
+collected device/environment evidence. Your backend owns the business policy;
+attackers can't reach your backend, but they can reach every line of your APK.
 
 ### Principle #B — BoxId server handshake
 
@@ -39,13 +39,14 @@ every line of your APK.
         │  business API call (carries BoxId)
         ▼
 [ Your backend ]  ──query(BoxId)──▶  [ Leona backend ]
-                  ◀─deviceId + risk────
+                  ◀─deviceId + evidence────
         │
         ▼
-  your decision (allow / challenge / deny / honeypot)
+  your own business policy
 ```
 
-The client cannot inspect detection results. The server can.
+The client cannot inspect detection results. Leona returns evidence; the
+calling business system defines how that evidence is interpreted.
 
 ### Principle #C — Layered deception (onion defense)
 
@@ -278,7 +279,7 @@ val loginResponse = myApi.login(
     leonaBoxId = boxId.toString(),
 )
 
-// Your backend calls Leona's API with boxId and gets the real verdict.
+// Your backend calls Leona's API with boxId and gets the environment evidence report.
 ```
 
 From Java, use the async variant:
@@ -327,16 +328,16 @@ your reporting endpoint does. The public surface remains intentionally small.
   format, and the Kotlin-side secure upload implementation.
 - The public sample app is intended to run with a Leona-issued API key and
   Leona hosted endpoints.
-- Authoritative verdicts, policy, tenant settings, and data interpretation
-  are handled by the Leona API/backend. The Android client collects and
-  reports signals; it does not make the final allow/deny decision.
+- Device/environment evidence, tenant settings, and data persistence are
+  handled by the Leona API/backend. The Android client collects and reports
+  signals; Leona itself does not make the final business decision.
 
 ## Public SDK vs closed-source runtime
 
 This repository publishes the Android public integration SDK only. Customers
 can integrate the SDK into their APK and use it in production, but the open
 source checkout must be configured with Leona API/backend access to obtain
-authoritative verdicts.
+device/environment evidence reports.
 
 For security reasons, this public repository does not include:
 
@@ -471,12 +472,12 @@ LEONA_CLOUD_CONFIG_ENDPOINT=https://<leona-config-api>/v1/mobile-config \
 
 Cloud config is a control-plane input because it can tune collection policy. The
 SDK only trusts HTTPS cloud config endpoints; HTTP endpoints are ignored for
-cloud config even when they are useful for local upload/verdict testing.
+cloud config even when they are useful for local upload/evidence-report testing.
 Canonical device identity is only persisted from the secure reporting server,
 not from mobile-config responses.
 
-The public SDK requires Leona hosted API/backend access for authoritative
-verdicts. It does not ship a self-hosted production backend.
+The public SDK requires Leona hosted API/backend access for environment evidence
+reports. It does not ship a self-hosted production backend.
 
 ## Contributing
 

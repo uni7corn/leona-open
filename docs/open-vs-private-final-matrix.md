@@ -6,10 +6,10 @@
 
 | Area | Public GitHub | Private/Internal |
 |---|---|---|
-| Role | Android public integration SDK | Hosted API/backend, private detection, policy, ops |
-| Goal | Let customers integrate Leona into an APK | Make authoritative decisions and operate production security |
+| Role | Android public integration SDK | Hosted API/backend, private detection, evidence ops |
+| Goal | Let customers integrate Leona into an APK | Collect, normalize, and operate device environment evidence |
 | Visibility | Open source | Not open source |
-| Runtime decision | No final decision in APK | Server-side verdict and policy |
+| Runtime decision | No final decision in APK | Evidence report only; customer business policy is external |
 
 ## 2. Android
 
@@ -30,9 +30,9 @@
 | Module / capability | Public GitHub | Private/Internal |
 |---|---:|---:|
 | Leona hosted API/backend implementation | No | Yes |
-| `/v1/verdict` production policy | No | Yes |
-| risk scoring weights and thresholds | No | Yes |
-| tenant / stage / rollout policy | No | Yes |
+| `/v1/verdict` evidence report implementation | No | Yes |
+| evidence scoring / grouping implementation | No | Yes |
+| tenant / stage / rollout collection policy | No | Yes |
 | internal ops endpoints | No | Yes |
 | production deployment/config | No | Yes |
 | keys, certificates, KMS/Vault wiring | No | Yes |

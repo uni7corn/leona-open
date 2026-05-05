@@ -34,6 +34,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
+import java.util.Locale
 import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
@@ -157,55 +158,7 @@ class MainActivity : AppCompatActivity() {
                 fetchDemoVerdictPayload(boxId)
             }.onSuccess { payload ->
                 val json = JSONObject(payload)
-                val decision = sequenceOf(
-                    json.optString("decision"),
-                    json.optJSONObject("verdict")?.optString("decision"),
-                ).mapNotNull { it?.ifBlank { null } }.firstOrNull() ?: "unknown"
-                val action = sequenceOf(
-                    json.optString("action"),
-                    json.optJSONObject("verdict")?.optString("action"),
-                    json.optJSONObject("risk")?.optString("action"),
-                ).mapNotNull { it?.ifBlank { null } }.firstOrNull() ?: "-"
-                val riskLevel = sequenceOf(
-                    json.optString("riskLevel"),
-                    json.optJSONObject("verdict")?.optString("riskLevel"),
-                    json.optJSONObject("risk")?.optString("level"),
-                ).mapNotNull { it?.ifBlank { null } }.firstOrNull() ?: "unknown"
-                val riskScore = sequenceOf(
-                    json.optInt("riskScore", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
-                    json.optJSONObject("verdict")?.optInt("riskScore", Int.MIN_VALUE)?.takeUnless { it == Int.MIN_VALUE },
-                    json.optJSONObject("risk")?.optInt("score", Int.MIN_VALUE)?.takeUnless { it == Int.MIN_VALUE },
-                ).firstOrNull() ?: -1
-                val riskTags = buildSet {
-                    json.optJSONArray("riskTags")?.let { array ->
-                        for (index in 0 until array.length()) add(array.optString(index))
-                    }
-                    json.optJSONObject("verdict")?.optJSONArray("riskTags")?.let { array ->
-                        for (index in 0 until array.length()) add(array.optString(index))
-                    }
-                    json.optJSONObject("risk")?.optJSONArray("tags")?.let { array ->
-                        for (index in 0 until array.length()) add(array.optString(index))
-                    }
-                }.map { it.trim() }.filter { it.isNotEmpty() }.sorted()
-                val canonicalDeviceId = sequenceOf(
-                    json.optString("canonicalDeviceId"),
-                    json.optJSONObject("device")?.optString("canonicalDeviceId"),
-                    json.optJSONObject("device")?.optString("deviceId"),
-                    json.optJSONObject("identity")?.optString("canonicalDeviceId"),
-                    json.optJSONObject("identity")?.optString("deviceId"),
-                    json.optJSONObject("deviceIdentity")?.optString("canonicalDeviceId"),
-                    json.optJSONObject("deviceIdentity")?.optString("deviceId"),
-                    json.optJSONObject("deviceIdentity")?.optString("resolvedDeviceId"),
-                ).mapNotNull { it?.ifBlank { null } }.firstOrNull() ?: "-"
-                binding.verdictResult.text = getString(
-                    R.string.verdict_result_v2_fmt,
-                    decision,
-                    action,
-                    riskLevel,
-                    riskScore,
-                    riskTags.joinToString(",").ifBlank { "-" },
-                    canonicalDeviceId,
-                )
+                binding.verdictResult.text = renderVerdictSummary(summarizeVerdict(json))
                 binding.verdictJson.text = runCatching { json.toString(2) }.getOrDefault(payload)
                 lastBoxId = null
             }.onFailure {
@@ -280,15 +233,7 @@ class MainActivity : AppCompatActivity() {
                 val demoPayload = fetchDemoVerdictPayload(boxId)
                 val demoJson = JSONObject(demoPayload)
                 val demoSummary = summarizeVerdict(demoJson)
-                binding.verdictResult.text = getString(
-                    R.string.verdict_result_v2_fmt,
-                    demoSummary.optString("decision", "unknown"),
-                    demoSummary.optString("action", "-"),
-                    demoSummary.optString("riskLevel", "unknown"),
-                    demoSummary.optInt("riskScore", -1),
-                    demoSummary.optJSONArray("riskTags").asStringList().joinToString(",").ifBlank { "-" },
-                    demoSummary.optString("canonicalDeviceId", "-"),
-                )
+                binding.verdictResult.text = renderVerdictSummary(demoSummary)
                 binding.verdictJson.text = runCatching { demoJson.toString(2) }.getOrDefault(demoPayload)
                 lastBoxId = null
                 refreshDiagnostics()
@@ -415,6 +360,137 @@ class MainActivity : AppCompatActivity() {
         json.optJSONObject("verdict")?.optJSONArray("riskTags").asStringList().forEach(::add)
         json.optJSONObject("risk")?.optJSONArray("tags").asStringList().forEach(::add)
     }.map { it.trim() }.filter { it.isNotEmpty() }.sorted()
+
+    private fun renderVerdictSummary(summary: JSONObject): String =
+        getString(
+            R.string.verdict_result_v2_fmt,
+            translateDecision(summary.optString("decision", "unknown")),
+            translateAction(summary.optString("action", "-")),
+            translateEvidenceLevel(summary.optString("riskLevel", "unknown")),
+            summary.optInt("riskScore", -1).takeIf { it >= 0 }?.toString() ?: "-",
+            formatTranslatedEvidence(summary.optJSONArray("riskTags").asStringList()),
+            summary.optString("canonicalDeviceId", "-"),
+        )
+
+    private fun formatTranslatedEvidence(values: Collection<String>): String =
+        values
+            .map { translateEvidenceToken(it) }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+            .joinToString("，")
+            .ifBlank { "-" }
+
+    private fun translateDecision(value: String?): String =
+        when (value?.trim()?.lowercase(Locale.ROOT)) {
+            "evidence_collected" -> "已采集环境信息"
+            "allow", "challenge", "reject", "deny", "review" -> "旧版字段：仅作兼容展示"
+            null, "", "-", "unknown" -> "尚未获取"
+            else -> "已采集环境信息"
+        }
+
+    private fun translateAction(value: String?): String =
+        when (value?.trim()?.lowercase(Locale.ROOT)) {
+            "business_defined" -> "由业务调用方自行处理"
+            "allow", "review", "block", "challenge", "reject", "deny" -> "旧版字段：业务方自行处理"
+            null, "", "-", "unknown" -> "由业务调用方自行处理"
+            else -> "由业务调用方自行处理"
+        }
+
+    private fun translateEvidenceLevel(value: String?): String =
+        when (value?.trim()?.uppercase(Locale.ROOT)) {
+            "CLEAN" -> "未见明显异常"
+            "LOW" -> "低强度证据"
+            "MEDIUM" -> "中等强度证据"
+            "HIGH" -> "高强度证据"
+            "CRITICAL" -> "严重强度证据"
+            null, "", "-", "UNKNOWN" -> "未知"
+            else -> "未知"
+        }
+
+    private fun translateNativeSeverity(value: Int?): String =
+        when (value) {
+            null -> "-"
+            0 -> "无"
+            1 -> "信息"
+            2 -> "低"
+            3 -> "中"
+            4 -> "高"
+            else -> "未知"
+        }
+
+    private fun translateEvidenceToken(raw: String): String {
+        val value = raw.trim().lowercase(Locale.ROOT)
+        if (value.isBlank()) return ""
+        return when {
+            value == "risk.clean" -> "证据等级：未见明显异常"
+            value == "risk.low" -> "证据等级：低"
+            value == "risk.medium" -> "证据等级：中"
+            value == "risk.high" -> "证据等级：高"
+            value == "risk.critical" -> "证据等级：严重"
+            value == "tamper.installer.missing" || value == "install.sideload_or_unknown" ->
+                "安装来源缺失或未知"
+            value == "debug.adb_enabled" || value.contains("developer.adb_enabled") ->
+                "ADB 调试已开启"
+            value == "debug.app_debuggable" || value.contains("app.debuggable") ->
+                "应用可调试标志已开启"
+            value == "debug.developer_options_enabled" || value.contains("developer.options_enabled") ->
+                "开发者选项已开启"
+            value == "debug.debugger_attached" || value.contains("debugger") || value.contains("ptrace") ->
+                "调试器或 ptrace 痕迹"
+            value.startsWith("private.policy.stage.") -> "服务端处理阶段标记"
+            value.startsWith("private.policy.profile.") -> "服务端配置档标记"
+            value.startsWith("private.policy.strictness.") -> "服务端严格度配置标记"
+            value == "private.policy.escalated" -> "服务端配置加权标记"
+            value.startsWith("server.policy.") || value.startsWith("private.policy.") -> "服务端配置标记"
+            value == "environment.emulator.detected" || value.contains("emulator") ->
+                "模拟器环境证据"
+            value.contains("qemu") || value.contains("goldfish") || value.contains("ranchu") ->
+                "Android 模拟器运行证据"
+            value.contains("virtio") || value.contains("dummy-virt") || value.contains("vbox") ->
+                "虚拟化设备证据"
+            value.contains("mumu") || value.contains("nemu") ->
+                "MuMu 模拟器证据"
+            value.contains("bluestacks") || value.contains("genymotion") ||
+                value.contains("ldplayer") || value.contains("nox") -> "第三方模拟器证据"
+            value == "environment.risky" -> "环境异常相关证据"
+            value.startsWith("root.") || value.contains("root") || value.contains("su.") ->
+                "Root 相关证据"
+            value.contains("magisk") || value.contains("zygisk") ->
+                "Magisk / Zygisk 相关证据"
+            value.contains("frida") -> "Frida 动态分析证据"
+            value.contains("xposed") -> "Xposed 框架证据"
+            value.contains("substrate") -> "Substrate 注入框架证据"
+            value.contains("hook") || value.contains("injection") ->
+                "Hook / 注入相关证据"
+            value == "tamper.detected" || value.contains("tamper") ->
+                "应用完整性或运行时篡改证据"
+            value.startsWith("runtime.mapping.deleted_executable") ->
+                "运行时存在已删除可执行映射"
+            value.startsWith("runtime.mapping.memfd_executable") ->
+                "运行时存在内存文件可执行映射"
+            value.startsWith("runtime.mapping.anonymous_executable") ->
+                "运行时存在匿名可执行映射"
+            value.startsWith("runtime.mapping.") -> "运行时内存映射事实"
+            value.startsWith("build.userdebug_or_eng") -> "系统构建类型为 userdebug/eng"
+            value.startsWith("build.dev_keys") -> "系统使用开发签名"
+            value.startsWith("build.tags.") -> "系统构建标签证据"
+            value.startsWith("rom.custom") || value.startsWith("rom.") ->
+                "自定义 ROM 相关证据"
+            value.startsWith("gsi.") -> "GSI / Treble 相关证据"
+            value.startsWith("bootloader.unlocked") -> "Bootloader 已解锁"
+            value.startsWith("bootloader.") -> "Bootloader 状态证据"
+            value.startsWith("verified_boot.green") -> "Verified Boot 绿色状态"
+            value.startsWith("verified_boot.orange") -> "Verified Boot 橙色状态"
+            value.startsWith("verified_boot.red") -> "Verified Boot 红色状态"
+            value.startsWith("verified_boot.") -> "Verified Boot 状态证据"
+            value.startsWith("treble.enabled") -> "Treble 支持已开启"
+            value.startsWith("native.") -> "Native 采集事实"
+            value.startsWith("device.") -> "设备身份采集事实"
+            value.startsWith("integrity.") -> "完整性采集事实"
+            else -> "其他环境采集项"
+        }
+    }
 
     private fun JSONArray?.asStringList(): List<String> {
         if (this == null) return emptyList()
@@ -544,15 +620,15 @@ class MainActivity : AppCompatActivity() {
             snapshot.installId,
             snapshot.canonicalDeviceId ?: "-",
             snapshot.fingerprintHash,
-            snapshot.evidenceSignals.toSortedSet().joinToString(",").ifBlank { "-" },
-            snapshot.nativeFactTags.toSortedSet().joinToString(",").ifBlank { "-" },
-            snapshot.nativeHighestSeverity?.toString() ?: "-",
-            snapshot.nativeFindingIds.joinToString(",").ifBlank { "-" },
-            snapshot.serverDecision ?: "-",
-            snapshot.serverAction ?: "-",
-            snapshot.serverRiskLevel ?: "-",
+            formatTranslatedEvidence(snapshot.evidenceSignals),
+            formatTranslatedEvidence(snapshot.nativeFactTags),
+            translateNativeSeverity(snapshot.nativeHighestSeverity),
+            formatTranslatedEvidence(snapshot.nativeFindingIds),
+            translateDecision(snapshot.serverDecision),
+            translateAction(snapshot.serverAction),
+            translateEvidenceLevel(snapshot.serverRiskLevel),
             snapshot.serverRiskScore?.toString() ?: "-",
-            snapshot.serverRiskTags.toSortedSet().joinToString(",").ifBlank { "-" },
+            formatTranslatedEvidence(snapshot.serverRiskTags),
             snapshot.lastBoxId ?: "-",
         )
 
