@@ -185,9 +185,19 @@ internal object NativePayloadInspector {
                     id == "env.emulator" -> add("environment.emulator.evidence")
                 id.startsWith("unidbg.") -> add("environment.unidbg.evidence")
                 id.startsWith("tamper.") -> add("app.integrity.evidence")
+                isNeutralDeviceEnvironmentFact(id) -> add(id)
             }
         }
     }
+
+    private fun isNeutralDeviceEnvironmentFact(id: String): Boolean =
+        id.startsWith("rom.") ||
+            id.startsWith("gsi.") ||
+            id.startsWith("bootloader.") ||
+            id.startsWith("verified_boot.") ||
+            id.startsWith("vbmeta.") ||
+            id.startsWith("build.tags.") ||
+            id.startsWith("build.type.")
 
     private const val VERSION_OFFSET = 4
     private const val EVENT_COUNT_OFFSET = 6

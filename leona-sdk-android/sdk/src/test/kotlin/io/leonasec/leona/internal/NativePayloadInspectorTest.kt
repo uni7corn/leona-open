@@ -167,6 +167,7 @@ class NativePayloadInspectorTest {
             ),
             summary.findingIds,
         )
+        assertEquals(summary.findingIds.toSet(), summary.factTags)
 
         val forbidden = setOf(
             "environment.emulator.native",
