@@ -236,7 +236,7 @@ Each device row must preserve a directory with these files:
 | `logcat.full.txt` | Script | Local-only diagnostic evidence; do not publish externally |
 | `package.txt` | Script | Installed package flags, version, requested permissions |
 | `server-verdict.json` | Host-side query | Verdict/explain response for the BoxId, if online API succeeds |
-| `matrix-row.md` | Manual/template | Filled report row from the template below |
+| `matrix-row.md` | Script/template | Filled report row generated from collected posture, logcat, and recent BoxID data |
 
 `server-verdict.json` must be queried by a host-side script or operator using
 tenant credentials outside the APK. Do not embed verdict secrets in sample apps.
@@ -392,7 +392,9 @@ Do not mark the related work item complete when:
 
 ## Matrix Row Template
 
-Copy this block into `matrix-row.md` inside the row output directory.
+`scripts/run-cloud-device-collection.sh` generates `matrix-row.md`
+automatically. Use this template only when a platform failure prevents the
+script from reaching the report stage.
 
 ```markdown
 # Leona WeTest Matrix Row

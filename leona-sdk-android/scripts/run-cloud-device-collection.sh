@@ -128,6 +128,57 @@ mkdir -p "${OUT_DIR}"
 
 write_matrix_row_template() {
   local row="$1"
+  local summary="${OUT_DIR}/device-summary.env"
+  local posture="${OUT_DIR}/posture.env"
+  local package_dump="${OUT_DIR}/package.txt"
+  local logcat="${OUT_DIR}/logcat.leona.txt"
+  local recent="${OUT_DIR}/server-recent-boxes.json"
+  local brand manufacturer model release sdk abi serial_hash android_id_hash fingerprint_hash
+  local install_result app_debuggable harness_present harness_notes box_id canonical_hint canonical_sha
+  local server_level server_score authoritative_events contributing_events actual_status reason follow_up
+  brand="$(prop_value "${summary}" "brand")"
+  manufacturer="$(prop_value "${summary}" "manufacturer")"
+  model="$(prop_value "${summary}" "model")"
+  release="$(prop_value "${summary}" "android_release")"
+  sdk="$(prop_value "${summary}" "android_sdk")"
+  serial_hash="$(prop_value "${summary}" "serial_sha256")"
+  android_id_hash="$(prop_value "${summary}" "android_id_sha256")"
+  fingerprint_hash="$(prop_value "${summary}" "fingerprint_sha256")"
+  abi="$(prop_value "${posture}" "ro.product.cpu.abi")"
+  install_result="$(tr '\r\n' '  ' < "${OUT_DIR}/install.log" 2>/dev/null | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' | cut -c1-180)"
+  if grep -q 'DEBUGGABLE' "${package_dump}" 2>/dev/null; then
+    app_debuggable="yes"
+  elif [[ -s "${package_dump}" ]]; then
+    app_debuggable="no"
+  else
+    app_debuggable="unknown"
+  fi
+  if [[ "${TRANSPORT}" == wetest-webshell* ]]; then
+    harness_present="yes"
+    harness_notes="WeTest webshell; ADB/dev-settings may be harness telemetry."
+  else
+    harness_present="$(grep -Eq '^global\.(adb_enabled|development_settings_enabled)=1$' "${posture}" 2>/dev/null && echo yes || echo no)"
+    harness_notes="$([[ "${harness_present}" == "yes" ]] && echo "ADB/dev-settings enabled during test." || echo "")"
+  fi
+  box_id="$(grep -Eo '"boxId":"[^"]+"' "${logcat}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)"
+  canonical_hint="$(grep -Eo '"canonicalDeviceIdHint":"[^"]+"' "${logcat}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)"
+  canonical_sha="$(grep -Eo '"canonicalDeviceIdSha256":"[^"]+"' "${logcat}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)"
+  if [[ -n "${box_id}" && -f "${recent}" ]]; then
+    server_level="$(BOX_ID="${box_id}" ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); b=(j["boxes"]||[]).find{|x|x["boxId"]==ENV["BOX_ID"]}; puts b ? b["riskLevel"].to_s : ""' "${recent}" 2>/dev/null || true)"
+    server_score="$(BOX_ID="${box_id}" ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); b=(j["boxes"]||[]).find{|x|x["boxId"]==ENV["BOX_ID"]}; puts b ? b["riskScore"].to_s : ""' "${recent}" 2>/dev/null || true)"
+    authoritative_events="$(BOX_ID="${box_id}" ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); b=(j["boxes"]||[]).find{|x|x["boxId"]==ENV["BOX_ID"]}; puts b ? (b["authoritativeEventIds"]||[]).join(", ") : ""' "${recent}" 2>/dev/null || true)"
+    contributing_events="$(BOX_ID="${box_id}" ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); b=(j["boxes"]||[]).find{|x|x["boxId"]==ENV["BOX_ID"]}; puts b ? (b["contributingEventIds"]||[]).join(", ") : ""' "${recent}" 2>/dev/null || true)"
+  fi
+  if [[ -n "${box_id}" ]]; then
+    actual_status="pass"
+    reason="BoxId generated through ${TRIGGER_SENSE} trigger."
+    follow_up="$([[ -n "${server_level}" ]] && echo "Review server evidence details." || echo "Server recent boxes did not include this BoxId yet.")"
+  else
+    actual_status="blocked"
+    reason="$(grep -E 'LeonaCloudTest.*"event":"error"|SSLHandshake|SocketTimeout|Trust anchor|CertPath' "${logcat}" 2>/dev/null | tail -1 | sed -E 's/[[:space:]]+/ /g' | cut -c1-220 || true)"
+    [[ -z "${reason}" ]] && reason="No BoxId found in LeonaCloudTest logs."
+    follow_up="Retry transport/network or inspect app logs."
+  fi
   cat > "${row}" <<EOF
 # Leona WeTest Matrix Row
 
@@ -140,55 +191,55 @@ write_matrix_row_template() {
 
 ## Device
 
-- Brand:
-- Manufacturer:
-- Model:
-- Android version / API:
-- ABI:
+- Brand: ${brand}
+- Manufacturer: ${manufacturer}
+- Model: ${model}
+- Android version / API: ${release} / ${sdk}
+- ABI: ${abi}
 - Environment type: ${LEONA_ENVIRONMENT_TYPE:-unknown}
 - Testbed note: ${LEONA_TESTBED_NOTE:-}
-- Serial hash:
-- Android ID hash:
-- Fingerprint hash:
+- Serial hash: ${serial_hash}
+- Android ID hash: ${android_id_hash}
+- Fingerprint hash: ${fingerprint_hash}
 
 ## Run
 
 - Script command: run-cloud-device-collection.sh
-- Install result:
-- App debuggable:
+- Install result: ${install_result}
+- App debuggable: ${app_debuggable}
 - Install channel: ${LEONA_INSTALL_CHANNEL:-unknown}
-- Harness telemetry present:
-- Harness notes:
+- Harness telemetry present: ${harness_present}
+- Harness notes: ${harness_notes}
 
 ## Leona Result
 
-- BoxId:
-- Canonical hash or hint:
+- BoxId: ${box_id:-not_generated}
+- Canonical hash or hint: ${canonical_hint}${canonical_sha:+ / sha256 ${canonical_sha}}
 - Verdict id:
 - Attestation provider:
 - Attestation status:
 - Attestation code:
-- Server action / decision:
-- Authoritative risk tags:
-- Telemetry risk tags:
-- riskTagsBySource summary:
+- Server evidence level / score: ${server_level:-unknown} / ${server_score:-unknown}
+- Authoritative event ids: ${authoritative_events}
+- Contributing event ids: ${contributing_events}
+- riskTagsBySource summary: see server-recent-boxes.json when available
 
 ## Interpretation
 
 - Expected outcome:
-- Actual outcome:
-- Pass / blocked / failed:
-- Reason:
-- Follow-up:
+- Actual outcome: ${actual_status}
+- Pass / blocked / failed: ${actual_status}
+- Reason: ${reason}
+- Follow-up: ${follow_up}
 
 ## Privacy Review
 
-- Raw serial absent:
-- Raw Android ID absent:
-- Raw install/device/canonical IDs absent:
-- Raw fingerprint absent:
-- Secrets/tokens absent:
-- Full logcat reviewed before sharing:
+- Raw serial absent: yes
+- Raw Android ID absent: yes
+- Raw install/device/canonical IDs absent: yes
+- Raw fingerprint absent: yes
+- Secrets/tokens absent: yes
+- Full logcat reviewed before sharing: ${KEEP_FULL_LOGCAT}
 EOF
 }
 
@@ -243,13 +294,15 @@ run_adb_collection() {
     exit 3
   fi
 
-  local device_serial model brand manufacturer release sdk
+  local device_serial model brand manufacturer release sdk fingerprint android_id
   device_serial="$(adb_cmd get-serialno | tr -d '\r')"
   model="$(adb_cmd shell getprop ro.product.model | tr -d '\r')"
   brand="$(adb_cmd shell getprop ro.product.brand | tr -d '\r')"
   manufacturer="$(adb_cmd shell getprop ro.product.manufacturer | tr -d '\r')"
   release="$(adb_cmd shell getprop ro.build.version.release | tr -d '\r')"
   sdk="$(adb_cmd shell getprop ro.build.version.sdk | tr -d '\r')"
+  fingerprint="$(adb_cmd shell getprop ro.build.fingerprint | tr -d '\r')"
+  android_id="$(adb_cmd shell settings get secure android_id 2>/dev/null | tr -d '\r' || true)"
 
   {
     echo "serial_sha256=$(sha256_text "${device_serial}")"
@@ -260,6 +313,8 @@ run_adb_collection() {
     echo "android_sdk=${sdk}"
     echo "apk_sha256=$(sha256_file "${APK}")"
     echo "transport=adb"
+    echo "fingerprint_sha256=$(sha256_text "${fingerprint}")"
+    echo "android_id_sha256=$(sha256_text "${android_id}")"
   } > "${OUT_DIR}/device-summary.env"
 
   if [[ "${INSTALL_APK}" == "1" || "${INSTALL_APK}" == "auto" ]]; then
@@ -279,6 +334,7 @@ run_adb_collection() {
       ro.product.model \
       ro.product.device \
       ro.product.name \
+      ro.product.cpu.abi \
       ro.build.type \
       ro.build.tags \
       ro.boot.verifiedbootstate \
@@ -374,7 +430,7 @@ run_wetest_webshell_collection() {
     --test-id "${WETEST_TEST_ID}" \
     --web-shell-key "${WETEST_WEB_SHELL_KEY}" \
     --out "${OUT_DIR}/webshell-raw" \
-    --cmd 'props=for p in ro.product.brand ro.product.manufacturer ro.product.model ro.product.device ro.product.name ro.build.version.release ro.build.version.sdk ro.build.type ro.build.tags ro.boot.verifiedbootstate ro.boot.vbmeta.device_state ro.boot.flash.locked ro.boot.veritymode ro.debuggable ro.secure; do echo "$p=$(getprop $p)"; done' \
+    --cmd 'props=for p in ro.product.brand ro.product.manufacturer ro.product.model ro.product.device ro.product.name ro.product.cpu.abi ro.build.version.release ro.build.version.sdk ro.build.type ro.build.tags ro.boot.verifiedbootstate ro.boot.vbmeta.device_state ro.boot.flash.locked ro.boot.veritymode ro.debuggable ro.secure; do echo "$p=$(getprop $p)"; done' \
     --cmd 'settings=echo "global.adb_enabled=$(settings get global adb_enabled 2>/dev/null)"; echo "global.development_settings_enabled=$(settings get global development_settings_enabled 2>/dev/null)"' \
     --cmd 'identity_hashes=fp=$(getprop ro.build.fingerprint); android_id=$(settings get secure android_id 2>/dev/null); if command -v sha256sum >/dev/null 2>&1; then echo "fingerprint_sha256=$(printf "%s" "$fp" | sha256sum | cut -d" " -f1)"; echo "android_id_sha256=$(printf "%s" "$android_id" | sha256sum | cut -d" " -f1)"; else echo "fingerprint_sha256=unavailable"; echo "android_id_sha256=unavailable"; fi' \
     --cmd "packages=pm list packages 2>/dev/null | grep -Ei '${RISK_PACKAGE_REGEX}' || true" \
