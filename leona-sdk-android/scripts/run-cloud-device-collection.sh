@@ -41,6 +41,16 @@ sha256_text() {
   fi
 }
 
+redact_secret_file() {
+  local file="$1"
+  local secret="$2"
+  if [[ -n "${secret}" && -f "${file}" ]]; then
+    local escaped
+    escaped="$(printf '%s' "${secret}" | sed 's/[\/&]/\\&/g')"
+    sed -i.bak "s/${escaped}/<redacted>/g" "${file}" && rm -f "${file}.bak"
+  fi
+}
+
 single_quote() {
   printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
 }
@@ -448,7 +458,11 @@ run_wetest_webshell_collection() {
     --cmd "packages=pm list packages 2>/dev/null | grep -Ei '${RISK_PACKAGE_REGEX}' || true" \
     --cmd "${webshell_launch_cmd}" \
     --cmd "package=dumpsys package ${PACKAGE} | head -180" \
-    --cmd 'logcat=logcat -d -v threadtime -t 1200'
+    --cmd 'logcat=logcat -d -v threadtime -t 1200' \
+    > "${OUT_DIR}/webshell-helper.log" 2>&1
+  for launch_artifact in "${OUT_DIR}"/webshell-raw/launch* "${OUT_DIR}/webshell-helper.log"; do
+    redact_secret_file "${launch_artifact}" "${CLOUD_TEST_TOKEN}"
+  done
 
   {
     clean_key_values "${OUT_DIR}/webshell-raw/props.txt"
@@ -457,6 +471,7 @@ run_wetest_webshell_collection() {
   grep -E '^package:' "${OUT_DIR}/webshell-raw/packages.txt" > "${OUT_DIR}/risk-package-filter.txt" || true
   clean_package_dump "${OUT_DIR}/webshell-raw/package.txt" > "${OUT_DIR}/package.txt"
   cp "${OUT_DIR}/webshell-raw/launch.txt" "${OUT_DIR}/am-start.log"
+  redact_secret_file "${OUT_DIR}/am-start.log" "${CLOUD_TEST_TOKEN}"
 
   grep -Ei 'Leona|LeonaE2E|LeonaCloudTest|leonasec|BoxId|canonical|verdict|risk|evidence|attestation|SSLHandshake|CertPath|Trust anchor' \
     "${OUT_DIR}/webshell-raw/logcat.txt" | grep -Ev 'AccessibilityNodeInfoDumper' > "${OUT_DIR}/logcat.leona.txt" || true
