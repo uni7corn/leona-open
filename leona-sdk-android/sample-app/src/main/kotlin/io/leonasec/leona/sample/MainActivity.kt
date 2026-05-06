@@ -449,8 +449,10 @@ class MainActivity : AppCompatActivity() {
             value == "risk.medium" -> "证据等级：中"
             value == "risk.high" -> "证据等级：高"
             value == "risk.critical" -> "证据等级：严重"
-            value == "tamper.installer.missing" || value == "install.sideload_or_unknown" ->
-                "安装来源缺失或未知"
+            value == "tamper.installer.missing" ->
+                "安装来源缺失：服务端从上报的 installerPackage 解析为空或未知"
+            value == "install.sideload_or_unknown" ->
+                "安装来源侧载或未知：由 installerPackage 缺失/非标准安装来源归类"
             value == "debug.adb_enabled" || value.contains("developer.adb_enabled") ->
                 "ADB 调试已开启"
             value == "debug.app_debuggable" || value.contains("app.debuggable") ->
@@ -459,11 +461,22 @@ class MainActivity : AppCompatActivity() {
                 "开发者选项已开启"
             value == "debug.debugger_attached" || value.contains("debugger") || value.contains("ptrace") ->
                 "调试器或 ptrace 痕迹"
-            value.startsWith("private.policy.stage.") -> "服务端处理阶段标记"
-            value.startsWith("private.policy.profile.") -> "服务端配置档标记"
-            value.startsWith("private.policy.strictness.") -> "服务端严格度配置标记"
-            value == "private.policy.escalated" -> "服务端配置加权标记"
-            value.startsWith("server.policy.") || value.startsWith("private.policy.") -> "服务端配置标记"
+            value == "private.policy.escalated" ->
+                "私有评分加权：至少一个权威检测事件触发服务端 private sensitive rules 的额外权重"
+            value == "private.policy.immediate_critical" ->
+                "私有即时严重项：权威检测事件命中服务端 immediate critical 规则"
+            value == "private.policy.tenant_override" ->
+                "租户覆盖配置：当前租户存在独立 private policy override"
+            value.startsWith("private.policy.stage.") ->
+                "服务端处理阶段：${value.substringAfterLast('.')}，表示该明细由对应评分阶段追加"
+            value.startsWith("private.policy.profile.") ->
+                "服务端部署配置：${value.substringAfterLast('.')}，表示当前服务端使用的 private policy profile"
+            value.startsWith("private.policy.strictness.") ->
+                "服务端严格度：${value.substringAfterLast('.')}，由部署 profile、处理阶段和租户覆盖综合解析"
+            value.startsWith("server.policy.") ->
+                "服务端公共策略项：由服务端公共策略层追加"
+            value.startsWith("private.policy.") ->
+                "服务端私有策略项：由 private scoring engine 追加"
             value == "environment.emulator.detected" || value.contains("emulator") ->
                 "模拟器环境证据"
             value.contains("qemu") || value.contains("goldfish") || value.contains("ranchu") ->
@@ -484,6 +497,10 @@ class MainActivity : AppCompatActivity() {
             value.contains("substrate") -> "Substrate 注入框架证据"
             value.contains("hook") || value.contains("injection") ->
                 "Hook / 注入相关证据"
+            value == "integrity.ok" ->
+                "完整性检查通过：基础完整性采集项未发现异常"
+            value.startsWith("app.tamper.signing_block_mismatch") ->
+                "APK 签名块不一致：由 APK Signing Block 哈希/ID 对比解析"
             value == "tamper.detected" || value.contains("tamper") ->
                 "应用完整性或运行时篡改证据"
             value.startsWith("runtime.mapping.deleted_executable") ->
