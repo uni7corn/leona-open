@@ -56,8 +56,8 @@
     <string name="box_id_error_fmt">BoxId 错误：%1$s</string>
     <string name="verdict_need_box_id">请先运行 sense() 生成 BoxId。</string>
     <string name="verdict_backend_not_configured">BuildConfig 中未配置演示后端地址。</string>
-    <string name="verdict_result_fmt">采集状态=%1$s\n证据等级=%2$s\n证据分=%3$d</string>
-    <string name="verdict_result_v2_fmt">采集状态=%1$s\n业务处理=%2$s\n证据等级=%3$s\n证据分=%4$s\n证据明细=%5$s\ncanonical=%6$s</string>
+    <string name="verdict_result_fmt">采集状态=%1$s\n检测明细=%2$s\ncanonical=%3$s</string>
+    <string name="verdict_result_v2_fmt">采集状态=%1$s\n业务处理=%2$s\n检测明细:\n%3$s\ncanonical=%4$s</string>
     <string name="verdict_error_fmt">采集结果错误：%1$s</string>
 
     <string name="decoy_header">诱饵接口：quickCheck()</string>

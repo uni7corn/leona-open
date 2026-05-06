@@ -331,7 +331,7 @@ class MainActivity : AppCompatActivity() {
                 ).mapNotNull { it?.ifBlank { null } }.firstOrNull() ?: "unknown",
             )
             .put("riskScore", riskScore)
-            .put("riskTags", JSONArray(collectRiskTags(json)))
+            .put("riskTags", JSONArray(collectDetectionDetails(json)))
             .put(
                 "canonicalDeviceId",
                 sequenceOf(
@@ -355,10 +355,19 @@ class MainActivity : AppCompatActivity() {
             .put("canonicalDeviceIdSha256", SampleJsonRedaction.hash(canonical))
     }
 
-    private fun collectRiskTags(json: JSONObject): List<String> = buildSet {
+    private fun collectDetectionDetails(json: JSONObject): List<String> = buildSet {
         json.optJSONArray("riskTags").asStringList().forEach(::add)
+        json.optJSONArray("riskReasons").asStringList().forEach(::add)
         json.optJSONObject("verdict")?.optJSONArray("riskTags").asStringList().forEach(::add)
+        json.optJSONObject("verdict")?.optJSONArray("riskReasons").asStringList().forEach(::add)
         json.optJSONObject("risk")?.optJSONArray("tags").asStringList().forEach(::add)
+        json.optJSONObject("risk")?.optJSONArray("reasons").asStringList().forEach(::add)
+        json.optJSONObject("policyExplanation")?.optJSONArray("reasons").asStringList().forEach(::add)
+        json.optJSONArray("events")?.let { events ->
+            for (index in 0 until events.length()) {
+                events.optJSONObject(index)?.optString("id")?.takeIf { it.isNotBlank() }?.let(::add)
+            }
+        }
     }.map { it.trim() }.filter { it.isNotEmpty() }.sorted()
 
     private fun renderVerdictSummary(summary: JSONObject): String =
@@ -366,9 +375,7 @@ class MainActivity : AppCompatActivity() {
             R.string.verdict_result_v2_fmt,
             translateDecision(summary.optString("decision", "unknown")),
             translateAction(summary.optString("action", "-")),
-            translateEvidenceLevel(summary.optString("riskLevel", "unknown")),
-            summary.optInt("riskScore", -1).takeIf { it >= 0 }?.toString() ?: "-",
-            formatTranslatedEvidence(summary.optJSONArray("riskTags").asStringList()),
+            formatTranslatedEvidenceDetails(summary.optJSONArray("riskTags").asStringList()),
             summary.optString("canonicalDeviceId", "-"),
         )
 
@@ -380,6 +387,20 @@ class MainActivity : AppCompatActivity() {
             .sorted()
             .joinToString("，")
             .ifBlank { "-" }
+
+    private fun formatTranslatedEvidenceDetails(values: Collection<String>): String {
+        val details = values
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .sorted()
+        if (details.isEmpty()) {
+            return "未返回具体检测项"
+        }
+        return details.joinToString("\n") { value ->
+            "· ${translateEvidenceToken(value)}（$value）"
+        }
+    }
 
     private fun translateDecision(value: String?): String =
         when (value?.trim()?.lowercase(Locale.ROOT)) {

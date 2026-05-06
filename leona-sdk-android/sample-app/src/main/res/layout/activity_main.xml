@@ -356,7 +356,7 @@
                     android:layout_marginTop="12dp"
                     android:fontFamily="monospace"
                     android:textAppearance="?attr/textAppearanceBodySmall"
-                    tools:text="采集状态=已采集环境信息&#10;证据等级=低强度证据&#10;证据分=12" />
+                    tools:text="采集状态=已采集环境信息&#10;业务处理=由业务调用方自行处理&#10;检测明细:&#10;· 安装来源缺失或未知（tamper.installer.missing）" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonToggleVerdictJson"
