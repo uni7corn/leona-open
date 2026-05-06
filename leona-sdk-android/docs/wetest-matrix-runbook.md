@@ -39,6 +39,23 @@ Samsung Android 12 sample unless it is needed for a regression check.
 | HONOR / Huawei | Android 10 or available non-GMS-like device | Mainland OEM posture and installer/display behavior |
 | Asus / ROG | Android 12 or available gaming-device sample | Non-mainstream OEM compatibility |
 
+### Current first-release status
+
+As of 2026-05-06, the first-release gate is considered complete for the
+evidence-collection launch scope:
+
+- Online homepage, health check, and recent BoxID query are reachable through
+  `https://leona.xiyanshan.com/`.
+- Clean OEM coverage includes Asus Android 12, HONOR Android 10, Xiaomi/Redmi
+  Android 10, plus prior Samsung/Xiaomi Android 12 regression rows.
+- The latest clean OEM rows did not show actual Frida, Magisk, Xposed, unidbg,
+  HONEYPOT, root, or emulator findings.
+- WeTest vivo/iQOO Android 14 was attempted, but the cloud device timed out
+  connecting to one SCDN HTTPS node. Treat this as a post-release network/node
+  retest item, not an SDK false-positive blocker.
+- Root, Magisk, hidden-environment, one-click-new-device/clone, custom ROM, and
+  production attestation provider coverage move to the post-release matrix.
+
 Release-gate success requires:
 
 - The latest `cloudTest` or release-like non-debug APK installs and starts.
