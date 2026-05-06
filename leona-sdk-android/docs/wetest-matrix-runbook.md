@@ -1,8 +1,16 @@
-# WeTest Batch Device Matrix Runbook
+# WeTest Release Gate And Batch Matrix Runbook
 
 This runbook is for collecting Leona Android SDK evidence on WeTest devices while
 preserving the SDK principle: the client collects evidence only, and final risk
 decisions come from the server verdict.
+
+The current priority is the first online release. Release-gate testing is a
+smaller goal than the full security matrix: prove that representative clean OEM
+devices can install the non-debug sample, run `sense()`, receive a BoxId from the
+online Leona API, and show concrete evidence details in the console without
+false positives. Root, Magisk, hidden-environment, clone, custom ROM, and broader
+emulator coverage remain post-release matrix work unless a release-gate run
+uncovers a blocker.
 
 The same plan also applies to WDB-attached WeTest sessions, standard USB ADB
 devices, and other cloud-device vendors that expose an ADB-compatible serial.
@@ -11,13 +19,37 @@ devices, and other cloud-device vendors that expose an ADB-compatible serial.
 
 Use WeTest for these work items:
 
-- Mainland / non-GMS OEM route: validate at least one real OEM bridge or staging
-  verifier dry run, then record provider, status, code, provenance, and verdict.
-- Custom AOSP / custom ROM / cloud phone samples: collect posture and verdict
-  records across real OEM, custom ROM/GSI, unlocked bootloader, Magisk testbed,
-  and cloud phone devices.
-- Emulator matrix expansion: add cloud-phone samples and, when available, Nox,
-  LDPlayer, BlueStacks, Genymotion, and other hosted Android environments.
+- First online release gate: validate clean OEM devices across different brands
+  and Android versions, online API connectivity, BoxId persistence, console
+  display, and false-positive control.
+- Post-release extended matrix: validate Root, Magisk, hidden environment,
+  one-click-new-device/clone, custom ROM/GSI, cloud phone, and emulator-family
+  samples using the same script and row template.
+
+The release-gate device selection must filter by brand and Android version
+before starting a device. Avoid repeatedly consuming time on an already-covered
+Samsung Android 12 sample unless it is needed for a regression check.
+
+## Release Gate Matrix
+
+| Brand / vendor | Android version | Release-gate purpose |
+| --- | --- | --- |
+| Xiaomi / Redmi | Android 10 or another non-Samsung version not already covered | Online `sense()` and clean OEM false-positive control |
+| vivo / iQOO | Android 14 or latest available | Modern OEM posture and online API compatibility |
+| HONOR / Huawei | Android 10 or available non-GMS-like device | Mainland OEM posture and installer/display behavior |
+| Asus / ROG | Android 12 or available gaming-device sample | Non-mainstream OEM compatibility |
+
+Release-gate success requires:
+
+- The latest `cloudTest` or release-like non-debug APK installs and starts.
+- `sense()` returns a BoxId through `https://leona.xiyanshan.com/`.
+- `/v1/console/boxes/recent` contains the BoxId and actual authoritative event
+  ids, not a rule-set summary.
+- Clean OEM samples do not show actual Frida, Magisk, Xposed, unidbg, HONEYPOT,
+  emulator, or root events unless the device really exposes that evidence.
+- WeTest ADB/developer-options/helper packages are labeled as harness telemetry.
+- Each row saves redacted posture and package evidence plus the queried online
+  record.
 
 ## Batch Matrix
 
@@ -82,11 +114,32 @@ must not be used as clean release conclusions.
 Use this lane for online API connectivity from WeTest when the APK must remain
 non-debug but still point at a staging or production Leona endpoint.
 
-- Build: `./gradlew :sample-app:assembleCloudTest`
+- Build:
+
+```bash
+LEONA_INCLUDE_PRIVATE_CORE=true ./gradlew :sample-app:assembleCloudTest \
+  -PLEONA_API_KEY="$LEONA_API_KEY" \
+  -PLEONA_REPORTING_ENDPOINT=https://leona.xiyanshan.com
+```
+
+Do not pass `LEONA_API_KEY` or `LEONA_REPORTING_ENDPOINT` only as shell
+environment variables. The sample app reads these values from Gradle project
+properties and bakes them into `BuildConfig` at build time.
+
 - Artifact: `sample-app/build/outputs/apk/cloudTest/sample-app-cloudTest.apk`
 - Required build inputs: tenant app key and HTTPS reporting endpoint.
 - Expected properties: `android:debuggable=false`, no debug E2E intent, no fake
   attestation mode, and no verbose native logging.
+
+Before uploading the APK to WeTest, verify the generated `BuildConfig`:
+
+```bash
+grep -E 'LEONA_REPORTING_ENDPOINT|LEONA_API_KEY' \
+  sample-app/build/generated/source/buildConfig/cloudTest/io/leonasec/leona/sample/BuildConfig.java
+```
+
+`LEONA_REPORTING_ENDPOINT` must be the online HTTPS endpoint and
+`LEONA_API_KEY` must be non-empty. Redact the key in reports.
 
 This lane can prove "sample can report to online Leona API from a cloud device".
 It still does not prove a trusted app-store distribution posture unless the
@@ -136,19 +189,34 @@ LEONA_COLLECTION_OUT=/tmp/leona-wetest-<date>-<brand>-<model>-webshell \
 ```
 
 For cloudTest rows where the APK is already installed and the goal is to prove
-online reporting, let the script trigger the sample UI:
+online reporting, prefer direct method invocation. This sends an explicit
+broadcast to the `cloudTest`-only receiver, which runs inside the sample app
+process and calls `Leona.sense()` without relying on UI coordinates:
 
 ```bash
-LEONA_CLICK_SENSE=1 \
+LEONA_TRIGGER_SENSE=direct \
 LEONA_RECENT_BOXES_ENDPOINT='https://leona.xiyanshan.com/v1/console/boxes/recent?limit=5' \
 ./scripts/run-cloud-device-collection.sh
 ```
 
-The default click path performs two vertical swipes, taps the current sample
-`sense()` button position, waits for the upload, and then queries recent online
-BoxIds. Override `LEONA_PRE_SENSE_SWIPES`, `LEONA_SENSE_TAP_X`,
-`LEONA_SENSE_TAP_Y`, and `LEONA_SENSE_WAIT_SECONDS` only when a model has a
-different viewport or UI scale.
+Use UI triggering only for manual UI smoke tests:
+
+```bash
+LEONA_TRIGGER_SENSE=ui \
+LEONA_RECENT_BOXES_ENDPOINT='https://leona.xiyanshan.com/v1/console/boxes/recent?limit=5' \
+./scripts/run-cloud-device-collection.sh
+```
+
+The UI path performs vertical swipes, tries to locate `buttonSense` by
+resource-id, falls back to the configured tap coordinate, waits for the upload,
+and then queries recent online BoxIds. Override `LEONA_PRE_SENSE_SWIPES`,
+`LEONA_SENSE_TAP_X`, `LEONA_SENSE_TAP_Y`, and `LEONA_SENSE_WAIT_SECONDS` only
+when a model has a different viewport or UI scale.
+
+On Android 10 / API 29 devices, the private secure-reporting engine must use the
+SDK's X25519 fallback when the platform does not provide `XDH` /
+`X25519 KeyPairGenerator`. Treat `NoSuchAlgorithmException: XDH KeyPairGenerator
+not available` as a release blocker.
 
 Never paste the WeTest webshell key, WDB token, cookies, or CSRF token into a
 report or issue. Keep them only in local shell environment files with restricted

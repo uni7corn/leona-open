@@ -139,7 +139,7 @@ android {
             kotlin.srcDirs("src/release/kotlin")
         }
         getByName("cloudTest") {
-            kotlin.srcDirs("src/release/kotlin")
+            kotlin.srcDirs("src/release/kotlin", "src/cloudTest/kotlin")
         }
     }
 }

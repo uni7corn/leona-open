@@ -17,10 +17,12 @@ RECENT_BOXES_ENDPOINT="${LEONA_RECENT_BOXES_ENDPOINT:-}"
 WETEST_HELPER="${WETEST_WEBSHELL_HELPER:-/Users/a/.codex/skills/wetest/scripts/wetest_webshell_collect.py}"
 RISK_PACKAGE_REGEX="${LEONA_RISK_PACKAGE_REGEX:-magisk|zygisk|lsposed|xposed|riru|shamiko|supersu|superuser|kingroot|kinguser|busybox|kernelsu|apatch|frida|taichi|island|shelter|parallel|virtualapp|dualspace|cloneapp|wetest}"
 CLICK_SENSE="${LEONA_CLICK_SENSE:-0}"
+TRIGGER_SENSE="${LEONA_TRIGGER_SENSE:-$([[ "${CLICK_SENSE}" == "1" ]] && echo ui || echo none)}"
 PRE_SENSE_SWIPES="${LEONA_PRE_SENSE_SWIPES:-2}"
 SENSE_TAP_X="${LEONA_SENSE_TAP_X:-540}"
 SENSE_TAP_Y="${LEONA_SENSE_TAP_Y:-435}"
 SENSE_WAIT_SECONDS="${LEONA_SENSE_WAIT_SECONDS:-18}"
+CLOUD_TEST_SENSE_ACTION="${LEONA_CLOUD_TEST_SENSE_ACTION:-io.leonasec.leona.sample.CLOUD_TEST_SENSE}"
 
 sha256_file() {
   if command -v shasum >/dev/null 2>&1; then
@@ -44,6 +46,30 @@ adb_cmd() {
   else
     "${ADB}" "$@"
   fi
+}
+
+tap_view_by_resource_id() {
+  local resource_id="$1"
+  local dump_file bounds x1 y1 x2 y2 tap_x tap_y
+  dump_file="$(mktemp "${TMPDIR:-/tmp}/leona-ui.XXXXXX")"
+  if ! adb_cmd exec-out uiautomator dump /dev/tty > "${dump_file}" 2>/dev/null; then
+    rm -f "${dump_file}"
+    return 1
+  fi
+  bounds="$(
+    tr '\r' '\n' < "${dump_file}" \
+      | grep -o "resource-id=\"${resource_id}\"[^>]*bounds=\"\\[[0-9]*,[0-9]*\\]\\[[0-9]*,[0-9]*\\]\"" \
+      | head -1 \
+      | sed -E 's/.*bounds="\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]".*/\1 \2 \3 \4/'
+  )"
+  rm -f "${dump_file}"
+  if [[ ! "${bounds}" =~ ^[0-9]+\ [0-9]+\ [0-9]+\ [0-9]+$ ]]; then
+    return 1
+  fi
+  read -r x1 y1 x2 y2 <<< "${bounds}"
+  tap_x=$(((x1 + x2) / 2))
+  tap_y=$(((y1 + y2) / 2))
+  adb_cmd shell input tap "${tap_x}" "${tap_y}"
 }
 
 usage() {
@@ -70,7 +96,10 @@ Optional:
   LEONA_INSTALL_APK=0|1|auto            Webshell cannot install APK; default auto.
   LEONA_KEEP_FULL_LOGCAT=1              Keep unfiltered local-only logcat.full.txt.
   LEONA_RECENT_BOXES_ENDPOINT=https://host/v1/console/boxes/recent?limit=5
-  LEONA_CLICK_SENSE=1                   Launch sample, scroll to sense(), tap it, then collect.
+  LEONA_TRIGGER_SENSE=direct|ui|none    direct uses cloudTest BroadcastReceiver; ui taps sample UI.
+  LEONA_CLICK_SENSE=1                   Deprecated alias for LEONA_TRIGGER_SENSE=ui.
+  LEONA_CLOUD_TEST_SENSE_ACTION=...     Broadcast action for direct cloudTest sense().
+  UI mode locates buttonSense by resource-id, then falls back to LEONA_SENSE_TAP_X/Y.
   LEONA_PRE_SENSE_SWIPES=2
   LEONA_SENSE_TAP_X=540
   LEONA_SENSE_TAP_Y=435
@@ -78,6 +107,7 @@ Optional:
 
 Notes:
   Release/non-debug APKs support launch, posture, package and logcat collection.
+  cloudTest APKs support direct method invocation through LEONA_TRIGGER_SENSE=direct.
   Authorized auto E2E requires a debug APK built with LEONA_E2E_TOKEN.
   WeTest webshell mode assumes the APK was installed by WeTest page/API first.
 USAGE
@@ -273,32 +303,40 @@ run_adb_collection() {
 
   echo "[5/7] Launch sample"
   adb_cmd logcat -c || true
-  if [[ -n "${E2E_TOKEN}" ]]; then
+  if [[ "${TRIGGER_SENSE}" == "direct" ]]; then
+    adb_cmd shell am broadcast \
+      -a "${CLOUD_TEST_SENSE_ACTION}" \
+      -n "${PACKAGE}/.CloudTestSenseReceiver" \
+      > "${OUT_DIR}/am-start.log" || true
+    sleep "${SENSE_WAIT_SECONDS}"
+  elif [[ -n "${E2E_TOKEN}" ]]; then
     adb_cmd shell am start -n "${ACTIVITY}" \
       --ez io.leonasec.leona.sample.extra.E2E_AUTO_RUN true \
       --es io.leonasec.leona.sample.extra.E2E_TOKEN "${E2E_TOKEN}" \
       > "${OUT_DIR}/am-start.log"
   else
     adb_cmd shell am start -n "${ACTIVITY}" > "${OUT_DIR}/am-start.log"
-  fi
-  if [[ "${CLICK_SENSE}" == "1" ]]; then
-    sleep 2
-    local i=0
-    while (( i < PRE_SENSE_SWIPES )); do
-      adb_cmd shell input swipe 540 2050 540 500 800 || true
-      sleep 1
-      i=$((i + 1))
-    done
-    adb_cmd shell input tap "${SENSE_TAP_X}" "${SENSE_TAP_Y}" || true
-    sleep "${SENSE_WAIT_SECONDS}"
-  else
-    sleep "${RUN_SECONDS}"
+    if [[ "${TRIGGER_SENSE}" == "ui" ]]; then
+      sleep 2
+      local i=0
+      while (( i < PRE_SENSE_SWIPES )); do
+        adb_cmd shell input swipe 540 2050 540 500 800 || true
+        sleep 1
+        i=$((i + 1))
+      done
+      tap_view_by_resource_id "${PACKAGE}:id/buttonSense" \
+        || adb_cmd shell input tap "${SENSE_TAP_X}" "${SENSE_TAP_Y}" \
+        || true
+      sleep "${SENSE_WAIT_SECONDS}"
+    else
+      sleep "${RUN_SECONDS}"
+    fi
   fi
 
   echo "[6/7] Collect logs"
   local logcat_tmp="${OUT_DIR}/logcat.tmp.txt"
   adb_cmd logcat -d -v threadtime > "${logcat_tmp}" || true
-  grep -Ei 'Leona|LeonaE2E|leonasec|BoxId|canonical|verdict|risk|evidence|attestation|SSLHandshake|CertPath|Trust anchor' \
+  grep -Ei 'Leona|LeonaE2E|LeonaCloudTest|leonasec|BoxId|canonical|verdict|risk|evidence|attestation|SSLHandshake|CertPath|Trust anchor' \
     "${logcat_tmp}" | grep -Ev 'AccessibilityNodeInfoDumper' > "${OUT_DIR}/logcat.leona.txt" || true
   if [[ "${KEEP_FULL_LOGCAT}" == "1" ]]; then
     mv "${logcat_tmp}" "${OUT_DIR}/logcat.full.txt"
@@ -322,8 +360,10 @@ run_wetest_webshell_collection() {
 
   echo "[1/7] Device via WeTest webshell"
   local webshell_launch_cmd="launch=am start -n ${ACTIVITY}; sleep 2"
-  if [[ "${CLICK_SENSE}" == "1" ]]; then
-    webshell_launch_cmd="${webshell_launch_cmd}; i=0; while [ \$i -lt ${PRE_SENSE_SWIPES} ]; do input swipe 540 2050 540 500 800; sleep 1; i=\$((i+1)); done; input tap ${SENSE_TAP_X} ${SENSE_TAP_Y}; sleep ${SENSE_WAIT_SECONDS}"
+  if [[ "${TRIGGER_SENSE}" == "direct" ]]; then
+    webshell_launch_cmd="launch=logcat -c; am broadcast -a ${CLOUD_TEST_SENSE_ACTION} -n ${PACKAGE}/.CloudTestSenseReceiver; sleep ${SENSE_WAIT_SECONDS}"
+  elif [[ "${TRIGGER_SENSE}" == "ui" ]]; then
+    webshell_launch_cmd="${webshell_launch_cmd}; i=0; while [ \$i -lt ${PRE_SENSE_SWIPES} ]; do input swipe 540 2050 540 500 800; sleep 1; i=\$((i+1)); done; bounds=\$(uiautomator dump /dev/tty 2>/dev/null | tr '\r' '\n' | sed -n 's/.*resource-id=\"${PACKAGE}:id\\/buttonSense\"[^>]*bounds=\"\\[\\([0-9][0-9]*\\),\\([0-9][0-9]*\\)\\]\\[\\([0-9][0-9]*\\),\\([0-9][0-9]*\\)\\]\".*/\\1 \\2 \\3 \\4/p' | head -1); set -- \$bounds; if [ \$# -eq 4 ]; then input tap \$(((\$1+\$3)/2)) \$(((\$2+\$4)/2)); else input tap ${SENSE_TAP_X} ${SENSE_TAP_Y}; fi; sleep ${SENSE_WAIT_SECONDS}"
   else
     webshell_launch_cmd="${webshell_launch_cmd}; sleep ${RUN_SECONDS}"
   fi
@@ -350,7 +390,7 @@ run_wetest_webshell_collection() {
   clean_package_dump "${OUT_DIR}/webshell-raw/package.txt" > "${OUT_DIR}/package.txt"
   cp "${OUT_DIR}/webshell-raw/launch.txt" "${OUT_DIR}/am-start.log"
 
-  grep -Ei 'Leona|LeonaE2E|leonasec|BoxId|canonical|verdict|risk|evidence|attestation|SSLHandshake|CertPath|Trust anchor' \
+  grep -Ei 'Leona|LeonaE2E|LeonaCloudTest|leonasec|BoxId|canonical|verdict|risk|evidence|attestation|SSLHandshake|CertPath|Trust anchor' \
     "${OUT_DIR}/webshell-raw/logcat.txt" | grep -Ev 'AccessibilityNodeInfoDumper' > "${OUT_DIR}/logcat.leona.txt" || true
   if [[ "${KEEP_FULL_LOGCAT}" == "1" ]]; then
     cp "${OUT_DIR}/webshell-raw/logcat.txt" "${OUT_DIR}/logcat.full.txt"
@@ -412,7 +452,7 @@ write_matrix_row_template "${OUT_DIR}/matrix-row.md"
   echo "- apk: ${APK}"
   echo "- output: ${OUT_DIR}"
   echo "- e2e: $([[ -n "${E2E_TOKEN}" ]] && echo "requested" || echo "not requested")"
-  echo "- click sense: ${CLICK_SENSE}"
+  echo "- trigger sense: ${TRIGGER_SENSE}"
   echo "- full logcat: $([[ "${KEEP_FULL_LOGCAT}" == "1" ]] && echo "kept local-only" || echo "not collected by default")"
   if [[ -f "${OUT_DIR}/server-recent-boxes.json" ]]; then
     echo "- recent boxes: server-recent-boxes.json"
