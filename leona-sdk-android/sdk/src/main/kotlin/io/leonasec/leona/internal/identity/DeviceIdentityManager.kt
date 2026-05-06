@@ -41,7 +41,12 @@ internal class DeviceIdentityManager(
                     store.persistCanonicalDeviceId(normalized)
                 }
             }
-        if (policy.disableCollectionWindowMs >= 0 && cached != null && cached.canonicalDeviceId == persistedCanonicalDeviceId) {
+        if (
+            policy.disableCollectionWindowMs >= 0 &&
+            cached != null &&
+            cached.fingerprintSchemaVersion == DeviceFingerprintHasher.CACHE_SCHEMA_VERSION &&
+            cached.canonicalDeviceId == persistedCanonicalDeviceId
+        ) {
             val age = System.currentTimeMillis() - cached.generatedAtMillis
             if (age in 0..policy.disableCollectionWindowMs) {
                 return if (refreshRiskSignals) refreshCachedRiskSignals(cached, policy) else cached
@@ -70,9 +75,19 @@ internal class DeviceIdentityManager(
             "${metrics.widthPixels}x${metrics.heightPixels}@${metrics.densityDpi}"
         }.getOrNull()
 
+        val virtualInstanceAnchorHash = loadVirtualInstanceAnchorHash()
+        val identityAnchor = if (virtualInstanceAnchorHash == null) {
+            buildIdentityAnchor(localAndroidId)
+        } else {
+            "virtual:$virtualInstanceAnchorHash"
+        }
         val fingerprintSeed = linkedMapOf(
-            "version" to "2",
-            "identityAnchor" to buildIdentityAnchor(localAndroidId),
+            "version" to if (virtualInstanceAnchorHash == null) {
+                DeviceFingerprintHasher.BASE_SEED_VERSION.toString()
+            } else {
+                DeviceFingerprintHasher.VIRTUAL_ANCHOR_SEED_VERSION.toString()
+            },
+            "identityAnchor" to identityAnchor,
             "buildFingerprint" to Build.FINGERPRINT.orEmpty(),
             "device" to Build.DEVICE.orEmpty(),
             "product" to Build.PRODUCT.orEmpty(),
@@ -83,11 +98,13 @@ internal class DeviceIdentityManager(
             "sdkInt" to Build.VERSION.SDK_INT.toString(),
             "abis" to Build.SUPPORTED_ABIS.joinToString(","),
         )
-        val fingerprintHash = sha256Hex(canonicalizeMap(fingerprintSeed).toByteArray())
+        virtualInstanceAnchorHash?.let { fingerprintSeed["virtualInstanceAnchorHash"] = it }
+        val fingerprintHash = DeviceFingerprintHasher.hashFingerprintSeed(fingerprintSeed)
         val resolvedDeviceId = canonicalDeviceId?.let(::normalizeCanonicalId)
             ?: buildTemporaryDeviceId(fingerprintHash = fingerprintHash)
 
         val snapshot = DeviceFingerprintSnapshot(
+            fingerprintSchemaVersion = DeviceFingerprintHasher.CACHE_SCHEMA_VERSION,
             generatedAtMillis = System.currentTimeMillis(),
             installId = installId,
             canonicalDeviceId = canonicalDeviceId,
@@ -153,10 +170,12 @@ internal class DeviceIdentityManager(
         fingerprintHash: String,
     ): String {
         val seed = linkedMapOf(
-            "version" to "2",
+            "version" to DeviceFingerprintHasher.BASE_SEED_VERSION.toString(),
             "fingerprintHash" to fingerprintHash,
         )
-        return "T" + base64UrlNoPadding(sha256(canonicalizeMap(seed).toByteArray()))
+        return "T" + DeviceFingerprintHasher.base64UrlNoPadding(
+            DeviceFingerprintHasher.sha256(DeviceFingerprintHasher.canonicalizeMap(seed).toByteArray()),
+        )
     }
 
     private fun collectRiskSignals(
@@ -291,6 +310,9 @@ internal class DeviceIdentityManager(
     }
 
     private fun hasKnownEmulatorSystemProperties(): Boolean {
+        if (systemProperty("nemud.player_uuid") != null) {
+            return true
+        }
         val exactMatches = mapOf(
             "ro.kernel.qemu" to setOf("1"),
             "ro.boot.qemu" to setOf("1"),
@@ -462,6 +484,52 @@ internal class DeviceIdentityManager(
             ?.ifEmpty { null }
     }.getOrNull()
 
+    private fun loadVirtualInstanceAnchorHash(): String? {
+        val hasRuntimeEvidence = hasKnownEmulatorSystemProperties() ||
+            hasKnownEmulatorFiles() ||
+            hasKnownEmulatorMounts() ||
+            hasKnownEmulatorPackages()
+        val emulatorLikely = DeviceEmulatorHeuristics.isEmulatorLikely(
+            fingerprint = Build.FINGERPRINT,
+            model = Build.MODEL,
+            manufacturer = Build.MANUFACTURER,
+            hardware = Build.HARDWARE,
+            product = Build.PRODUCT,
+            device = Build.DEVICE,
+            board = Build.BOARD,
+            hasKnownRuntimeEvidence = hasRuntimeEvidence,
+        )
+        if (!emulatorLikely) return null
+
+        val anchors = linkedMapOf<String, String>()
+        listOf(
+            "nemud.player_uuid",
+            "ro.serialno",
+            "ro.boot.serialno",
+            "ro.boot.qemu.avd_name",
+            "ro.boot.hardware.sku",
+        ).forEach { key ->
+            systemProperty(key)?.let { value -> anchors["prop.$key"] = value }
+        }
+        loadNetworkHardwareAnchors().forEach { (name, mac) ->
+            anchors["net.$name"] = mac
+        }
+        return DeviceFingerprintHasher.hashVirtualInstanceAnchors(anchors)
+    }
+
+    private fun loadNetworkHardwareAnchors(): Map<String, String> = runCatching {
+        NetworkInterface.getNetworkInterfaces()
+            ?.toList()
+            .orEmpty()
+            .filterNot { network -> network.isLoopback }
+            .mapNotNull { network ->
+                val mac = network.hardwareAddress?.toMacString() ?: return@mapNotNull null
+                if (!DeviceFingerprintHasher.isUsableAnchorValue(mac)) return@mapNotNull null
+                network.name.lowercase(Locale.ROOT) to mac
+            }
+            .toMap()
+    }.getOrDefault(emptyMap())
+
     private fun loadInstallerPackage(): String? = runCatching {
         val pm = appContext.packageManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -486,7 +554,7 @@ internal class DeviceIdentityManager(
             @Suppress("DEPRECATION")
             packageInfo.signatures?.map { it.toByteArray() }.orEmpty()
         }
-        rawSignatures.map(::sha256Hex).sorted()
+        rawSignatures.map(DeviceFingerprintHasher::sha256Hex).sorted()
     }.getOrDefault(emptyList())
 
     private fun packageInfo(): PackageInfo? = runCatching {
@@ -513,26 +581,66 @@ internal class DeviceIdentityManager(
     companion object {
         private fun normalizeCanonicalId(value: String): String =
             if (value.startsWith("L")) value else "L$value"
-
-        private fun canonicalizeMap(values: Map<String, String>): String = buildString {
-            values.toSortedMap().forEach { (key, value) ->
-                append(key)
-                append('=')
-                append(value)
-                append('\n')
-            }
-        }
-
-        private fun sha256(bytes: ByteArray): ByteArray =
-            MessageDigest.getInstance("SHA-256").digest(bytes)
-
-        private fun sha256Hex(bytes: ByteArray): String =
-            sha256(bytes).joinToString(separator = "") { b -> "%02x".format(b) }
-
-        private fun base64UrlNoPadding(bytes: ByteArray): String =
-            Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 }
+
+internal object DeviceFingerprintHasher {
+    const val BASE_SEED_VERSION = 2
+    const val VIRTUAL_ANCHOR_SEED_VERSION = 3
+    const val CACHE_SCHEMA_VERSION = 3
+
+    fun hashFingerprintSeed(values: Map<String, String>): String =
+        sha256Hex(canonicalizeMap(values).toByteArray())
+
+    fun hashVirtualInstanceAnchors(values: Map<String, String>): String? {
+        val sanitized = values
+            .mapNotNull { (key, value) ->
+                val normalized = value.trim()
+                if (isUsableAnchorValue(normalized)) key to normalized else null
+            }
+            .toMap()
+        if (sanitized.isEmpty()) return null
+        return sha256Hex(canonicalizeMap(sanitized).toByteArray())
+    }
+
+    fun isUsableAnchorValue(value: String): Boolean {
+        val normalized = value.trim().lowercase(Locale.ROOT)
+        return normalized.isNotEmpty() &&
+            normalized !in setOf(
+                "unknown",
+                "none",
+                "null",
+                "0",
+                "000000000000000",
+                "0123456789abcdef",
+                "02:00:00:00:00:00",
+                "00:00:00:00:00:00",
+                "ff:ff:ff:ff:ff:ff",
+                "<redacted>",
+            )
+    }
+
+    fun canonicalizeMap(values: Map<String, String>): String = buildString {
+        values.toSortedMap().forEach { (key, value) ->
+            append(key)
+            append('=')
+            append(value)
+            append('\n')
+        }
+    }
+
+    fun sha256(bytes: ByteArray): ByteArray =
+        MessageDigest.getInstance("SHA-256").digest(bytes)
+
+    fun base64UrlNoPadding(bytes: ByteArray): String =
+        Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+
+    fun sha256Hex(bytes: ByteArray): String =
+        sha256(bytes).joinToString(separator = "") { b -> "%02x".format(b) }
+}
+
+private fun ByteArray.toMacString(): String =
+    joinToString(separator = ":") { b -> "%02x".format(b) }
 
 internal object DeviceEmulatorHeuristics {
     fun isEmulatorLikely(

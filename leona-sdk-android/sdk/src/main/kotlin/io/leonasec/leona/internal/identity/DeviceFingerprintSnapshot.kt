@@ -10,6 +10,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal data class DeviceFingerprintSnapshot(
+    val fingerprintSchemaVersion: Int = DeviceFingerprintHasher.CACHE_SCHEMA_VERSION,
     val generatedAtMillis: Long,
     val installId: String,
     val canonicalDeviceId: String?,
@@ -36,6 +37,7 @@ internal data class DeviceFingerprintSnapshot(
         get() = ClientEvidenceSignalMapper.toEvidenceSignals(riskSignals)
 
     fun toJson(): String = JSONObject()
+        .put("fingerprintSchemaVersion", fingerprintSchemaVersion)
         .put("generatedAtMillis", generatedAtMillis)
         .put("installId", installId)
         .put("canonicalDeviceId", canonicalDeviceId)
@@ -65,6 +67,7 @@ internal data class DeviceFingerprintSnapshot(
             return runCatching {
                 val obj = JSONObject(json)
                 DeviceFingerprintSnapshot(
+                    fingerprintSchemaVersion = obj.optInt("fingerprintSchemaVersion", 0),
                     generatedAtMillis = obj.optLong("generatedAtMillis", 0L),
                     installId = obj.getString("installId"),
                     canonicalDeviceId = obj.optString("canonicalDeviceId").ifBlank { null },
