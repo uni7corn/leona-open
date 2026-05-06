@@ -444,11 +444,11 @@ class MainActivity : AppCompatActivity() {
         val value = raw.trim().lowercase(Locale.ROOT)
         if (value.isBlank()) return ""
         return when {
-            value == "risk.clean" -> "【策略派生】服务端聚合为未见明显异常，不是独立设备行为标签"
-            value == "risk.low" -> "【策略派生】服务端聚合为低强度证据，不是独立设备行为标签"
-            value == "risk.medium" -> "【策略派生】服务端聚合为中等强度证据，不是独立设备行为标签"
-            value == "risk.high" -> "【策略派生】服务端聚合为高强度证据，不是独立设备行为标签"
-            value == "risk.critical" -> "【策略派生】服务端聚合为严重证据，不是独立设备行为标签；请优先查看 Root/Hook/调试/ADB/安装来源等具体明细"
+            value == "risk.clean" -> "【服务端汇总等级】clean：服务端将本次检测事件聚合为未见明显异常"
+            value == "risk.low" -> "【服务端汇总等级】low：服务端按检测事件分值聚合出的低强度等级"
+            value == "risk.medium" -> "【服务端汇总等级】medium：服务端按检测事件分值聚合出的中等强度等级"
+            value == "risk.high" -> "【服务端汇总等级】high：服务端按检测事件分值聚合出的高强度等级；具体原因看同列表行为标签"
+            value == "risk.critical" -> "【服务端汇总等级】critical：服务端按检测事件分值或即时严重规则聚合出的严重等级；具体原因看 Root/Hook/调试/ADB/安装来源等明细"
             value == "tamper.installer.missing" ->
                 "【安装来源】安装来源缺失：上报 installerPackage 为空或未知"
             value == "install.sideload_or_unknown" ->
@@ -462,21 +462,21 @@ class MainActivity : AppCompatActivity() {
             value == "debug.debugger_attached" || value.contains("debugger") || value.contains("ptrace") ->
                 "【调试/Debugger】调试器或 ptrace 痕迹：运行时存在 debugger/ptrace 相关证据"
             value == "private.policy.escalated" ->
-                "【策略派生】服务端已根据本次具体行为标签加权；它不是独立设备行为，请结合本列表中的 Root/Hook/调试/ADB/安装来源等明细判断"
+                "【服务端私有评分】额外加权：authoritativeEvents 中命中 Frida/ptrace/unidbg/Magisk/KSU/Xposed/tamper/HONEYPOT/HIGH+ 环境事件，PrivateSensitiveEventRules.extraWeight > 0"
             value == "private.policy.immediate_critical" ->
-                "【策略派生】命中服务端 immediate critical 规则；它不是独立设备行为，请查看同次上报中的具体 Root/Hook/调试/ADB 等标签"
+                "【服务端私有评分】即时严重：检测事件命中 CRITICAL 注入或 unidbg、HIGH+ 蜜罐、STRICT+CRITICAL 篡改、或 WORKER+非 baseline+CRITICAL env.root.* 规则"
             value == "private.policy.tenant_override" ->
-                "【策略派生】租户覆盖配置生效：当前租户存在独立 private policy override，不是设备行为标签"
+                "【服务端租户配置】租户覆盖生效：当前 tenantId 在 PrivateRiskConfig.tenantOverrides 中存在独立策略"
             value.startsWith("private.policy.stage.") ->
-                "【策略派生】后台处理阶段：stage=${value.substringAfterLast('.')}；表示该明细由对应服务端评分阶段追加，不是设备行为标签"
+                "【服务端评分阶段】stage=${value.substringAfterLast('.')}：来自 RiskScoringContext.stage，表示本次评分发生在 ingestion 或 worker 阶段"
             value.startsWith("private.policy.profile.") ->
-                "【策略派生】服务端部署配置：profile=${value.substringAfterLast('.')}；表示当前 private policy profile，不是设备行为标签"
+                "【服务端部署配置】profile=${value.substringAfterLast('.')}：来自 PrivateRiskConfig.profile；production 默认 strict，staging 默认 elevated，development 默认 baseline"
             value.startsWith("private.policy.strictness.") ->
-                "【策略派生】服务端严格度：strictness=${value.substringAfterLast('.')}；由 profile、stage、tenant override 推导，不是设备行为标签"
+                "【服务端严格度】strictness=${value.substringAfterLast('.')}：由 PrivateRiskConfig.strictnessFor 计算；profile 默认值叠加 worker 阶段收紧、strict/relaxed tenant、tenant override"
             value.startsWith("server.policy.") ->
-                "【策略派生】服务端公共策略项：由公共策略层追加，不是独立设备行为标签"
+                "【服务端公共策略】公共评分层追加的 reason：来源于 shared rule-based scorer"
             value.startsWith("private.policy.") ->
-                "【策略派生】服务端私有策略派生项：由 private scoring engine 追加，不是独立设备行为标签"
+                "【服务端私有评分】PrivateRiskScoringEngine 追加的 reason；需要结合原始检测事件和服务端配置解析"
             value == "environment.emulator.detected" || value.contains("emulator") ->
                 "【模拟器】模拟器运行环境：服务端聚合到 emulator detected"
             value.contains("qemu") || value.contains("goldfish") || value.contains("ranchu") ->
