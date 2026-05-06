@@ -23,6 +23,7 @@ SENSE_TAP_X="${LEONA_SENSE_TAP_X:-540}"
 SENSE_TAP_Y="${LEONA_SENSE_TAP_Y:-435}"
 SENSE_WAIT_SECONDS="${LEONA_SENSE_WAIT_SECONDS:-18}"
 CLOUD_TEST_SENSE_ACTION="${LEONA_CLOUD_TEST_SENSE_ACTION:-io.leonasec.leona.sample.CLOUD_TEST_SENSE}"
+CLOUD_TEST_TOKEN="${LEONA_CLOUD_TEST_TOKEN:-}"
 
 sha256_file() {
   if command -v shasum >/dev/null 2>&1; then
@@ -38,6 +39,10 @@ sha256_text() {
   else
     printf '%s' "$1" | sha256sum | awk '{print $1}'
   fi
+}
+
+single_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
 }
 
 adb_cmd() {
@@ -97,6 +102,7 @@ Optional:
   LEONA_KEEP_FULL_LOGCAT=1              Keep unfiltered local-only logcat.full.txt.
   LEONA_RECENT_BOXES_ENDPOINT=https://host/v1/console/boxes/recent?limit=5
   LEONA_TRIGGER_SENSE=direct|ui|none    direct uses cloudTest BroadcastReceiver; ui taps sample UI.
+  LEONA_CLOUD_TEST_TOKEN=<token>         Required for LEONA_TRIGGER_SENSE=direct.
   LEONA_CLICK_SENSE=1                   Deprecated alias for LEONA_TRIGGER_SENSE=ui.
   LEONA_CLOUD_TEST_SENSE_ACTION=...     Broadcast action for direct cloudTest sense().
   UI mode locates buttonSense by resource-id, then falls back to LEONA_SENSE_TAP_X/Y.
@@ -125,6 +131,11 @@ if [[ -z "${APK}" || ! -f "${APK}" ]]; then
 fi
 
 mkdir -p "${OUT_DIR}"
+
+if [[ "${TRIGGER_SENSE}" == "direct" && -z "${CLOUD_TEST_TOKEN}" ]]; then
+  echo "LEONA_CLOUD_TEST_TOKEN is required when LEONA_TRIGGER_SENSE=direct." >&2
+  exit 2
+fi
 
 write_matrix_row_template() {
   local row="$1"
@@ -363,6 +374,7 @@ run_adb_collection() {
     adb_cmd shell am broadcast \
       -a "${CLOUD_TEST_SENSE_ACTION}" \
       -n "${PACKAGE}/.CloudTestSenseReceiver" \
+      --es io.leonasec.leona.sample.CLOUD_TEST_TOKEN "${CLOUD_TEST_TOKEN}" \
       > "${OUT_DIR}/am-start.log" || true
     sleep "${SENSE_WAIT_SECONDS}"
   elif [[ -n "${E2E_TOKEN}" ]]; then
@@ -417,7 +429,7 @@ run_wetest_webshell_collection() {
   echo "[1/7] Device via WeTest webshell"
   local webshell_launch_cmd="launch=am start -n ${ACTIVITY}; sleep 2"
   if [[ "${TRIGGER_SENSE}" == "direct" ]]; then
-    webshell_launch_cmd="launch=logcat -c; am broadcast -a ${CLOUD_TEST_SENSE_ACTION} -n ${PACKAGE}/.CloudTestSenseReceiver; sleep ${SENSE_WAIT_SECONDS}"
+    webshell_launch_cmd="launch=logcat -c; am broadcast -a ${CLOUD_TEST_SENSE_ACTION} -n ${PACKAGE}/.CloudTestSenseReceiver --es io.leonasec.leona.sample.CLOUD_TEST_TOKEN $(single_quote "${CLOUD_TEST_TOKEN}"); sleep ${SENSE_WAIT_SECONDS}"
   elif [[ "${TRIGGER_SENSE}" == "ui" ]]; then
     webshell_launch_cmd="${webshell_launch_cmd}; i=0; while [ \$i -lt ${PRE_SENSE_SWIPES} ]; do input swipe 540 2050 540 500 800; sleep 1; i=\$((i+1)); done; bounds=\$(uiautomator dump /dev/tty 2>/dev/null | tr '\r' '\n' | sed -n 's/.*resource-id=\"${PACKAGE}:id\\/buttonSense\"[^>]*bounds=\"\\[\\([0-9][0-9]*\\),\\([0-9][0-9]*\\)\\]\\[\\([0-9][0-9]*\\),\\([0-9][0-9]*\\)\\]\".*/\\1 \\2 \\3 \\4/p' | head -1); set -- \$bounds; if [ \$# -eq 4 ]; then input tap \$(((\$1+\$3)/2)) \$(((\$2+\$4)/2)); else input tap ${SENSE_TAP_X} ${SENSE_TAP_Y}; fi; sleep ${SENSE_WAIT_SECONDS}"
   else

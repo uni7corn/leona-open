@@ -1,8 +1,9 @@
 # WeTest Release Gate And Batch Matrix Runbook
 
 This runbook is for collecting Leona Android SDK evidence on WeTest devices while
-preserving the SDK principle: the client collects evidence only, and final risk
-decisions come from the server verdict.
+preserving the SDK principle: the client collects evidence only. Leona returns
+environment evidence and provenance; the customer business backend decides
+allow, challenge, block, honeypot, or any other product action.
 
 The current priority is the first online release. Release-gate testing is a
 smaller goal than the full security matrix: prove that representative clean OEM
@@ -94,7 +95,7 @@ Minimum completion target for the first batch:
   the hiding method as testbed metadata, not as a client conclusion.
 - 1 one-click-new-device or clone sample.
 - 1 WeTest remote-debug sample documenting harness telemetry.
-- 1 online API sample with BoxId and server verdict/explain provenance.
+- 1 online API sample with BoxId and host-side Leona evidence/provenance query.
 
 ## APK Lanes
 
@@ -136,6 +137,7 @@ non-debug but still point at a staging or production Leona endpoint.
 ```bash
 LEONA_INCLUDE_PRIVATE_CORE=true ./gradlew :sample-app:assembleCloudTest \
   -PLEONA_API_KEY="$LEONA_API_KEY" \
+  -PLEONA_CLOUD_TEST_TOKEN="$LEONA_CLOUD_TEST_TOKEN" \
   -PLEONA_REPORTING_ENDPOINT=https://leona.xiyanshan.com
 ```
 
@@ -144,19 +146,20 @@ environment variables. The sample app reads these values from Gradle project
 properties and bakes them into `BuildConfig` at build time.
 
 - Artifact: `sample-app/build/outputs/apk/cloudTest/sample-app-cloudTest.apk`
-- Required build inputs: tenant app key and HTTPS reporting endpoint.
+- Required build inputs: tenant app key, cloudTest trigger token, and HTTPS reporting endpoint.
 - Expected properties: `android:debuggable=false`, no debug E2E intent, no fake
   attestation mode, and no verbose native logging.
 
 Before uploading the APK to WeTest, verify the generated `BuildConfig`:
 
 ```bash
-grep -E 'LEONA_REPORTING_ENDPOINT|LEONA_API_KEY' \
+grep -E 'LEONA_REPORTING_ENDPOINT|LEONA_API_KEY|LEONA_CLOUD_TEST_TOKEN' \
   sample-app/build/generated/source/buildConfig/cloudTest/io/leonasec/leona/sample/BuildConfig.java
 ```
 
 `LEONA_REPORTING_ENDPOINT` must be the online HTTPS endpoint and
-`LEONA_API_KEY` must be non-empty. Redact the key in reports.
+`LEONA_API_KEY` / `LEONA_CLOUD_TEST_TOKEN` must be non-empty. Redact both values
+in reports.
 
 This lane can prove "sample can report to online Leona API from a cloud device".
 It still does not prove a trusted app-store distribution posture unless the
@@ -212,6 +215,7 @@ process and calls `Leona.sense()` without relying on UI coordinates:
 
 ```bash
 LEONA_TRIGGER_SENSE=direct \
+LEONA_CLOUD_TEST_TOKEN="$LEONA_CLOUD_TEST_TOKEN" \
 LEONA_RECENT_BOXES_ENDPOINT='https://leona.xiyanshan.com/v1/console/boxes/recent?limit=5' \
 ./scripts/run-cloud-device-collection.sh
 ```
@@ -312,8 +316,9 @@ Current verified state on 2026-05-06:
 For collection-only cloud-test rows, the deployed ingestion service currently
 uses `LEONA_HANDSHAKE_ATTESTATION_REQUIRED=false`. This keeps missing or absent
 attestation as handshake/session evidence and allows `sense()` to return BoxId;
-the server verdict remains the only policy decision point. Production tenant
-policy can still require attestation before allowing a business action.
+Leona does not convert that evidence into a business action. Production tenants
+can still require attestation in their own business policy before allowing a
+business action.
 
 ## Minimum Device Matrix
 
@@ -327,20 +332,21 @@ policy can still require attestation before allowing a business action.
 | Cloud phone | 2 | Virtualization/cloud-phone evidence and server provenance |
 | Emulator family | 4 | Runtime evidence beyond brand/model strings |
 
-## Verdict And Interpretation Rules
+## Evidence And Interpretation Rules
 
 - The Android SDK evidence is never a final allow/block decision.
-- The report conclusion is based on the server verdict and explain/provenance
-  response, not on local UI text or raw logcat tags.
-- `riskTags`, `authoritativeRiskTags`, and final action must come from the
-  server. Client headers, native facts, and local package filters are telemetry.
+- The report conclusion is based on the Leona evidence/provenance response, not
+  on local UI text or raw logcat tags.
+- `riskTags` and `authoritativeRiskTags` are Leona evidence labels. Final product
+  actions must come from the customer business policy. Client headers, native
+  facts, and local package filters are telemetry.
 - WeTest harness facts such as `adb_enabled=1`, developer options, remote input
   packages, `com.tencent.wetest.softkeyboard`, and `com.wetest.uidump` must be
   recorded as `test_harness` telemetry.
 - Root, Magisk, environment hiding, clone, and cloud-phone conclusions require
   either server provenance or a clear "observed telemetry only" note.
 - A clean-device row succeeds when it uploads evidence, receives a BoxId, and the
-  server verdict has no emulator/root/hook/tamper findings caused by the device
+  Leona evidence report has no emulator/root/hook/tamper findings caused by the device
   itself. Debuggable APK, sideload, ADB, or WeTest harness tags must be labeled
   as test posture when present.
 - A hidden-environment row can pass as a test record even when Leona does not
@@ -383,7 +389,7 @@ A batch is successful when all of these are true:
 - Each completed row has `device-summary.env`, `posture.env`,
   `risk-package-filter.txt`, `logcat.leona.txt`, `package.txt`, and a filled
   `matrix-row.md`.
-- Online API rows have BoxId plus host-side server verdict/explain evidence.
+- Online API rows have BoxId plus host-side Leona evidence/provenance details.
 - Reports separate authoritative server risk from low-trust client telemetry.
 - Privacy rules are satisfied by grep or manual review before artifacts are
   shared outside the local machine.
@@ -453,7 +459,7 @@ script from reaching the report stage.
 - Attestation provider:
 - Attestation status:
 - Attestation code:
-- Server action / decision:
+- Leona evidence status:
 - Authoritative risk tags:
 - Telemetry risk tags:
 - riskTagsBySource summary:

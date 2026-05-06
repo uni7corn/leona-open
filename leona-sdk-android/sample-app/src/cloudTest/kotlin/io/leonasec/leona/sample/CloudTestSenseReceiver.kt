@@ -18,6 +18,16 @@ class CloudTestSenseReceiver : BroadcastReceiver() {
         if (intent.action != ACTION) {
             return
         }
+        val expectedToken = BuildConfig.LEONA_CLOUD_TEST_TOKEN
+        val suppliedToken = intent.getStringExtra(EXTRA_TOKEN).orEmpty()
+        if (expectedToken.isBlank() || suppliedToken != expectedToken) {
+            val payload = JSONObject()
+                .put("class", "SecurityException")
+                .put("message", "cloudTest sense trigger is not authorized")
+            writeResult(context, JSONObject().put("error", payload))
+            emit("error", payload)
+            return
+        }
         val pendingResult = goAsync()
         Thread {
             val startedAt = System.currentTimeMillis()
@@ -58,6 +68,7 @@ class CloudTestSenseReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION = "io.leonasec.leona.sample.CLOUD_TEST_SENSE"
+        const val EXTRA_TOKEN = "io.leonasec.leona.sample.CLOUD_TEST_TOKEN"
         private const val LOG_TAG = "LeonaCloudTest"
     }
 }

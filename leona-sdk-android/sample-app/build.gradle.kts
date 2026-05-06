@@ -9,6 +9,7 @@ val leonaReportingEndpoint = providers.gradleProperty("LEONA_REPORTING_ENDPOINT"
 val leonaCloudConfigEndpoint = providers.gradleProperty("LEONA_CLOUD_CONFIG_ENDPOINT").orElse("").get()
 val leonaDemoBackendBaseUrl = providers.gradleProperty("LEONA_DEMO_BACKEND_BASE_URL").orElse("").get()
 val leonaE2EToken = providers.gradleProperty("LEONA_E2E_TOKEN").orElse("").get()
+val leonaCloudTestToken = providers.gradleProperty("LEONA_CLOUD_TEST_TOKEN").orElse("").get()
 val leonaSampleAttestationMode = providers.gradleProperty("LEONA_SAMPLE_ATTESTATION_MODE").orElse("off").get()
 val leonaSamplePlayIntegrityCloudProjectNumber =
     providers.gradleProperty("LEONA_SAMPLE_PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER").orElse("").get()
@@ -22,11 +23,13 @@ tasks.register("guardSampleReleaseBuild") {
     description = "Fail sample release builds that would embed debug/test-only configuration."
     inputs.property("leonaApiKey", leonaApiKey)
     inputs.property("leonaE2EToken", leonaE2EToken)
+    inputs.property("leonaCloudTestToken", leonaCloudTestToken)
     inputs.property("leonaSampleAttestationMode", leonaSampleAttestationMode)
     doLast {
         val debugOnlySampleProperties = mapOf(
             "LEONA_API_KEY" to inputs.properties["leonaApiKey"]?.toString().orEmpty(),
             "LEONA_E2E_TOKEN" to inputs.properties["leonaE2EToken"]?.toString().orEmpty(),
+            "LEONA_CLOUD_TEST_TOKEN" to inputs.properties["leonaCloudTestToken"]?.toString().orEmpty(),
             "LEONA_SAMPLE_ATTESTATION_MODE" to inputs.properties["leonaSampleAttestationMode"]?.toString().orEmpty(),
         )
         val unsafe = debugOnlySampleProperties.filterValues { value -> value.isNotBlank() && value != "off" }
@@ -55,6 +58,7 @@ android {
         buildConfigField("String", "LEONA_CLOUD_CONFIG_ENDPOINT", "\"\"")
         buildConfigField("String", "LEONA_DEMO_BACKEND_BASE_URL", "\"\"")
         buildConfigField("String", "LEONA_E2E_TOKEN", "\"\"")
+        buildConfigField("String", "LEONA_CLOUD_TEST_TOKEN", "\"\"")
         buildConfigField("String", "LEONA_SAMPLE_ATTESTATION_MODE", "\"off\"")
         buildConfigField("Boolean", "LEONA_VERBOSE_NATIVE_LOGGING", "false")
         buildConfigField(
@@ -84,6 +88,7 @@ android {
             buildConfigField("String", "LEONA_CLOUD_CONFIG_ENDPOINT", leonaCloudConfigEndpoint.quoted())
             buildConfigField("String", "LEONA_DEMO_BACKEND_BASE_URL", leonaDemoBackendBaseUrl.quoted())
             buildConfigField("String", "LEONA_E2E_TOKEN", leonaE2EToken.quoted())
+            buildConfigField("String", "LEONA_CLOUD_TEST_TOKEN", "\"\"")
             buildConfigField("String", "LEONA_SAMPLE_ATTESTATION_MODE", leonaSampleAttestationMode.quoted())
             buildConfigField("Boolean", "LEONA_VERBOSE_NATIVE_LOGGING", "true")
             buildConfigField(
@@ -104,6 +109,7 @@ android {
             buildConfigField("String", "LEONA_CLOUD_CONFIG_ENDPOINT", leonaCloudConfigEndpoint.quoted())
             buildConfigField("String", "LEONA_DEMO_BACKEND_BASE_URL", leonaDemoBackendBaseUrl.quoted())
             buildConfigField("String", "LEONA_E2E_TOKEN", "\"\"")
+            buildConfigField("String", "LEONA_CLOUD_TEST_TOKEN", leonaCloudTestToken.quoted())
             buildConfigField("String", "LEONA_SAMPLE_ATTESTATION_MODE", leonaSampleAttestationMode.quoted())
             buildConfigField("Boolean", "LEONA_VERBOSE_NATIVE_LOGGING", "false")
             buildConfigField(

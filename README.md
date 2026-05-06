@@ -2,7 +2,11 @@
 
 Leona is an Android runtime security SDK. The public repository contains the Android integration SDK, the sample Android app, public build tooling, and public-safe documentation.
 
-The authoritative security decision is not made inside the APK. Apps call `Leona.sense()` to collect and report evidence, receive an opaque `BoxId`, and send that `BoxId` to their own business backend. The business backend then queries the Leona hosted API/backend for the final verdict.
+The authoritative business decision is not made inside the APK or by Leona's
+default SDK policy. Apps call `Leona.sense()` to collect and report evidence,
+receive an opaque `BoxId`, and send that `BoxId` to their own business backend.
+The business backend queries the Leona hosted API/backend for environment
+evidence and provenance, then applies the customer's own product policy.
 
 ## Public Repository Rule
 
@@ -27,10 +31,13 @@ Leona API/backend
     |
     | BoxId
     v
-Customer app -> customer backend -> Leona verdict API -> customer decision
+Customer app -> customer backend -> Leona evidence API -> customer decision
 ```
 
-Client apps should not make final security decisions from local signals. The client only collects evidence and reports it. Final allow/challenge/deny/honeypot decisions belong on the server side.
+Client apps should not make final security decisions from local signals. The
+client only collects evidence and reports it. Leona provides evidence and
+provenance; allow, challenge, deny, honeypot, or other product actions belong to
+the customer business policy.
 
 ## Repository Layout
 
@@ -91,7 +98,7 @@ Nightly CI runs the same public SDK checks. It does not run private backend, dem
 The following areas are intentionally absent from public code:
 
 - Leona hosted API/backend implementation
-- `/v1/verdict` production decision policy
+- hosted `/v1/verdict` evidence/provenance policy and production operations
 - private native detector catalog and private JNI bridge
 - private risk scoring weights and tenant rollout policy
 - production config, keys, KMS/Vault wiring, dashboards, and internal ops
