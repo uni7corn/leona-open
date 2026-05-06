@@ -362,7 +362,11 @@ class MainActivity : AppCompatActivity() {
         json.optJSONObject("verdict")?.optJSONArray("riskReasons").asStringList().forEach(::add)
         json.optJSONObject("risk")?.optJSONArray("tags").asStringList().forEach(::add)
         json.optJSONObject("risk")?.optJSONArray("reasons").asStringList().forEach(::add)
-        json.optJSONObject("policyExplanation")?.optJSONArray("reasons").asStringList().forEach(::add)
+        json.optJSONObject("policyExplanation")?.let { policy ->
+            policy.optJSONArray("reasons").asStringList().forEach(::add)
+            policy.optJSONArray("authoritativeEventIds").asStringList().forEach(::add)
+            policy.optJSONArray("contributingEventIds").asStringList().forEach(::add)
+        }
         json.optJSONArray("events")?.let { events ->
             for (index in 0 until events.length()) {
                 events.optJSONObject(index)?.optString("id")?.takeIf { it.isNotBlank() }?.let(::add)
@@ -462,9 +466,9 @@ class MainActivity : AppCompatActivity() {
             value == "debug.debugger_attached" || value.contains("debugger") || value.contains("ptrace") ->
                 "【调试/Debugger】调试器或 ptrace 痕迹：运行时存在 debugger/ptrace 相关证据"
             value == "private.policy.escalated" ->
-                "【服务端私有评分】额外加权：authoritativeEvents 中命中 Frida/ptrace/unidbg/Magisk/KSU/Xposed/tamper/HONEYPOT/HIGH+ 环境事件，PrivateSensitiveEventRules.extraWeight > 0"
+                "【服务端私有评分】额外加权：由本条记录 policyExplanation.authoritativeEventIds 中的权威事件触发；实际事件见同列表中的原始 event id"
             value == "private.policy.immediate_critical" ->
-                "【服务端私有评分】即时严重：检测事件命中 CRITICAL 注入或 unidbg、HIGH+ 蜜罐、STRICT+CRITICAL 篡改、或 WORKER+非 baseline+CRITICAL env.root.* 规则"
+                "【服务端私有评分】即时严重：由本条记录 policyExplanation.authoritativeEventIds 中的权威事件触发 immediate critical；实际事件见同列表中的原始 event id"
             value == "private.policy.tenant_override" ->
                 "【服务端租户配置】租户覆盖生效：当前 tenantId 在 PrivateRiskConfig.tenantOverrides 中存在独立策略"
             value.startsWith("private.policy.stage.") ->
