@@ -444,88 +444,89 @@ class MainActivity : AppCompatActivity() {
         val value = raw.trim().lowercase(Locale.ROOT)
         if (value.isBlank()) return ""
         return when {
-            value == "risk.clean" -> "证据等级：未见明显异常"
-            value == "risk.low" -> "证据等级：低"
-            value == "risk.medium" -> "证据等级：中"
-            value == "risk.high" -> "证据等级：高"
-            value == "risk.critical" -> "证据等级：严重"
+            value == "risk.clean" -> "【策略派生】服务端聚合为未见明显异常，不是独立设备行为标签"
+            value == "risk.low" -> "【策略派生】服务端聚合为低强度证据，不是独立设备行为标签"
+            value == "risk.medium" -> "【策略派生】服务端聚合为中等强度证据，不是独立设备行为标签"
+            value == "risk.high" -> "【策略派生】服务端聚合为高强度证据，不是独立设备行为标签"
+            value == "risk.critical" -> "【策略派生】服务端聚合为严重证据，不是独立设备行为标签；请优先查看 Root/Hook/调试/ADB/安装来源等具体明细"
             value == "tamper.installer.missing" ->
-                "安装来源缺失：服务端从上报的 installerPackage 解析为空或未知"
+                "【安装来源】安装来源缺失：上报 installerPackage 为空或未知"
             value == "install.sideload_or_unknown" ->
-                "安装来源侧载或未知：由 installerPackage 缺失/非标准安装来源归类"
+                "【安装来源】侧载或未知安装来源：installerPackage 缺失或非标准商店来源"
             value == "debug.adb_enabled" || value.contains("developer.adb_enabled") ->
-                "ADB 调试已开启"
+                "【调试/ADB】ADB 调试已开启：设备全局 adb_enabled 或 developer.adb_enabled 为开启"
             value == "debug.app_debuggable" || value.contains("app.debuggable") ->
-                "应用可调试标志已开启"
+                "【调试/Debuggable】应用可调试：APK/Application debuggable 标志开启"
             value == "debug.developer_options_enabled" || value.contains("developer.options_enabled") ->
-                "开发者选项已开启"
+                "【调试/开发者选项】开发者选项已开启：development_settings_enabled 为开启"
             value == "debug.debugger_attached" || value.contains("debugger") || value.contains("ptrace") ->
-                "调试器或 ptrace 痕迹"
+                "【调试/Debugger】调试器或 ptrace 痕迹：运行时存在 debugger/ptrace 相关证据"
             value == "private.policy.escalated" ->
-                "私有评分加权：至少一个权威检测事件触发服务端 private sensitive rules 的额外权重"
+                "【策略派生】服务端已根据本次具体行为标签加权；它不是独立设备行为，请结合本列表中的 Root/Hook/调试/ADB/安装来源等明细判断"
             value == "private.policy.immediate_critical" ->
-                "私有即时严重项：权威检测事件命中服务端 immediate critical 规则"
+                "【策略派生】命中服务端 immediate critical 规则；它不是独立设备行为，请查看同次上报中的具体 Root/Hook/调试/ADB 等标签"
             value == "private.policy.tenant_override" ->
-                "租户覆盖配置：当前租户存在独立 private policy override"
+                "【策略派生】租户覆盖配置生效：当前租户存在独立 private policy override，不是设备行为标签"
             value.startsWith("private.policy.stage.") ->
-                "服务端处理阶段：${value.substringAfterLast('.')}，表示该明细由对应评分阶段追加"
+                "【策略派生】后台处理阶段：stage=${value.substringAfterLast('.')}；表示该明细由对应服务端评分阶段追加，不是设备行为标签"
             value.startsWith("private.policy.profile.") ->
-                "服务端部署配置：${value.substringAfterLast('.')}，表示当前服务端使用的 private policy profile"
+                "【策略派生】服务端部署配置：profile=${value.substringAfterLast('.')}；表示当前 private policy profile，不是设备行为标签"
             value.startsWith("private.policy.strictness.") ->
-                "服务端严格度：${value.substringAfterLast('.')}，由部署 profile、处理阶段和租户覆盖综合解析"
+                "【策略派生】服务端严格度：strictness=${value.substringAfterLast('.')}；由 profile、stage、tenant override 推导，不是设备行为标签"
             value.startsWith("server.policy.") ->
-                "服务端公共策略项：由服务端公共策略层追加"
+                "【策略派生】服务端公共策略项：由公共策略层追加，不是独立设备行为标签"
             value.startsWith("private.policy.") ->
-                "服务端私有策略项：由 private scoring engine 追加"
+                "【策略派生】服务端私有策略派生项：由 private scoring engine 追加，不是独立设备行为标签"
             value == "environment.emulator.detected" || value.contains("emulator") ->
-                "模拟器环境证据"
+                "【模拟器】模拟器运行环境：服务端聚合到 emulator detected"
             value.contains("qemu") || value.contains("goldfish") || value.contains("ranchu") ->
-                "Android 模拟器运行证据"
+                "【模拟器】QEMU/Goldfish/Ranchu 特征：Android 模拟器运行栈证据"
             value.contains("virtio") || value.contains("dummy-virt") || value.contains("vbox") ->
-                "虚拟化设备证据"
+                "【模拟器/虚拟化】虚拟化设备特征：virtio、dummy-virt 或 vbox 相关证据"
             value.contains("mumu") || value.contains("nemu") ->
-                "MuMu 模拟器证据"
+                "【模拟器/MuMu】MuMu/Nemu 运行环境证据"
             value.contains("bluestacks") || value.contains("genymotion") ||
-                value.contains("ldplayer") || value.contains("nox") -> "第三方模拟器证据"
-            value == "environment.risky" -> "环境异常相关证据"
-            value.startsWith("root.") || value.contains("root") || value.contains("su.") ->
-                "Root 相关证据"
+                value.contains("ldplayer") || value.contains("nox") -> "【模拟器】第三方模拟器环境证据"
+            value == "environment.risky" -> "【环境】环境异常聚合标签：请查看同列表中的具体行为明细"
             value.contains("magisk") || value.contains("zygisk") ->
-                "Magisk / Zygisk 相关证据"
-            value.contains("frida") -> "Frida 动态分析证据"
-            value.contains("xposed") -> "Xposed 框架证据"
-            value.contains("substrate") -> "Substrate 注入框架证据"
+                "【Root/Magisk】Magisk/Zygisk 痕迹：检测到面具或 Zygisk 相关证据"
+            value.startsWith("root.") || value.contains("root") || value.contains("su.") ->
+                "【Root】Root 痕迹：检测到 su/root 相关文件、包名、属性或运行环境证据"
+            value.contains("frida") ->
+                "【Hook/Frida】Frida 动态分析：检测到 frida 进程、库、memfd、trampoline 或相关运行时痕迹"
+            value.contains("xposed") -> "【Hook/Xposed】Xposed 框架痕迹：检测到 Xposed 相关包、库或运行时特征"
+            value.contains("substrate") -> "【Hook/Substrate】Substrate 注入框架痕迹"
             value.contains("hook") || value.contains("injection") ->
-                "Hook / 注入相关证据"
+                "【Hook/注入】Hook 或代码注入行为：检测到 injection/hook 相关运行时证据"
             value == "integrity.ok" ->
-                "完整性检查通过：基础完整性采集项未发现异常"
+                "【完整性】基础完整性检查通过：integrity.ok，本项不是风险"
             value.startsWith("app.tamper.signing_block_mismatch") ->
-                "APK 签名块不一致：由 APK Signing Block 哈希/ID 对比解析"
+                "【完整性】APK 签名块不一致：APK Signing Block 哈希或 ID 对比不匹配"
             value == "tamper.detected" || value.contains("tamper") ->
-                "应用完整性或运行时篡改证据"
+                "【完整性/篡改】应用完整性或运行时篡改证据"
             value.startsWith("runtime.mapping.deleted_executable") ->
-                "运行时存在已删除可执行映射"
+                "【运行时映射】存在已删除可执行映射：deleted executable mapping"
             value.startsWith("runtime.mapping.memfd_executable") ->
-                "运行时存在内存文件可执行映射"
+                "【运行时映射】存在内存文件可执行映射：memfd executable mapping"
             value.startsWith("runtime.mapping.anonymous_executable") ->
-                "运行时存在匿名可执行映射"
-            value.startsWith("runtime.mapping.") -> "运行时内存映射事实"
-            value.startsWith("build.userdebug_or_eng") -> "系统构建类型为 userdebug/eng"
-            value.startsWith("build.dev_keys") -> "系统使用开发签名"
-            value.startsWith("build.tags.") -> "系统构建标签证据"
+                "【运行时映射】存在匿名可执行映射：anonymous executable mapping"
+            value.startsWith("runtime.mapping.") -> "【运行时映射】运行时内存映射事实"
+            value.startsWith("build.userdebug_or_eng") -> "【系统构建】系统构建类型为 userdebug/eng"
+            value.startsWith("build.dev_keys") -> "【系统构建】系统使用开发签名 dev-keys"
+            value.startsWith("build.tags.") -> "【系统构建】系统构建标签证据"
             value.startsWith("rom.custom") || value.startsWith("rom.") ->
-                "自定义 ROM 相关证据"
-            value.startsWith("gsi.") -> "GSI / Treble 相关证据"
-            value.startsWith("bootloader.unlocked") -> "Bootloader 已解锁"
-            value.startsWith("bootloader.") -> "Bootloader 状态证据"
-            value.startsWith("verified_boot.green") -> "Verified Boot 绿色状态"
-            value.startsWith("verified_boot.orange") -> "Verified Boot 橙色状态"
-            value.startsWith("verified_boot.red") -> "Verified Boot 红色状态"
-            value.startsWith("verified_boot.") -> "Verified Boot 状态证据"
-            value.startsWith("treble.enabled") -> "Treble 支持已开启"
-            value.startsWith("native.") -> "Native 采集事实"
-            value.startsWith("device.") -> "设备身份采集事实"
-            value.startsWith("integrity.") -> "完整性采集事实"
+                "【自定义 ROM】自定义 ROM/AOSP-like 相关证据"
+            value.startsWith("gsi.") -> "【自定义 ROM/GSI】GSI 或 Treble 相关证据"
+            value.startsWith("bootloader.unlocked") -> "【Bootloader】Bootloader 已解锁"
+            value.startsWith("bootloader.") -> "【Bootloader】Bootloader 状态证据"
+            value.startsWith("verified_boot.green") -> "【Verified Boot】绿色状态：设备启动链处于 locked/green 正常状态"
+            value.startsWith("verified_boot.orange") -> "【Verified Boot】橙色状态：通常表示 bootloader 解锁或非完整验证启动"
+            value.startsWith("verified_boot.red") -> "【Verified Boot】红色状态：启动链验证失败或存在严重完整性异常"
+            value.startsWith("verified_boot.") -> "【Verified Boot】启动链验证状态证据"
+            value.startsWith("treble.enabled") -> "【系统能力】Treble 支持已开启"
+            value.startsWith("native.") -> "【Native】Native 采集事实"
+            value.startsWith("device.") -> "【设备身份】设备身份采集事实"
+            value.startsWith("integrity.") -> "【完整性】完整性采集事实"
             else -> "其他环境采集项"
         }
     }
