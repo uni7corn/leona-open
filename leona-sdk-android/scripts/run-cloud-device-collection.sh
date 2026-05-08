@@ -51,6 +51,23 @@ redact_secret_file() {
   fi
 }
 
+redact_sensitive_patterns_file() {
+  local file="$1"
+  if [[ -f "${file}" ]]; then
+    sed -E -i.bak 's/ct_[A-Za-z0-9]{20,}/<redacted>/g' "${file}" && rm -f "${file}.bak"
+  fi
+}
+
+redact_sensitive_file() {
+  local file="$1"
+  shift || true
+  local secret
+  for secret in "$@"; do
+    redact_secret_file "${file}" "${secret}"
+  done
+  redact_sensitive_patterns_file "${file}"
+}
+
 single_quote() {
   printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
 }
@@ -386,12 +403,14 @@ run_adb_collection() {
       -n "${PACKAGE}/.CloudTestSenseReceiver" \
       --es io.leonasec.leona.sample.CLOUD_TEST_TOKEN "${CLOUD_TEST_TOKEN}" \
       > "${OUT_DIR}/am-start.log" || true
+    redact_sensitive_file "${OUT_DIR}/am-start.log" "${CLOUD_TEST_TOKEN}" "${E2E_TOKEN}"
     sleep "${SENSE_WAIT_SECONDS}"
   elif [[ -n "${E2E_TOKEN}" ]]; then
     adb_cmd shell am start -n "${ACTIVITY}" \
       --ez io.leonasec.leona.sample.extra.E2E_AUTO_RUN true \
       --es io.leonasec.leona.sample.extra.E2E_TOKEN "${E2E_TOKEN}" \
       > "${OUT_DIR}/am-start.log"
+    redact_sensitive_file "${OUT_DIR}/am-start.log" "${CLOUD_TEST_TOKEN}" "${E2E_TOKEN}"
   else
     adb_cmd shell am start -n "${ACTIVITY}" > "${OUT_DIR}/am-start.log"
     if [[ "${TRIGGER_SENSE}" == "ui" ]]; then
@@ -461,7 +480,7 @@ run_wetest_webshell_collection() {
     --cmd 'logcat=logcat -d -v threadtime -t 1200' \
     > "${OUT_DIR}/webshell-helper.log" 2>&1
   for launch_artifact in "${OUT_DIR}"/webshell-raw/launch* "${OUT_DIR}/webshell-helper.log"; do
-    redact_secret_file "${launch_artifact}" "${CLOUD_TEST_TOKEN}"
+    redact_sensitive_file "${launch_artifact}" "${CLOUD_TEST_TOKEN}" "${E2E_TOKEN}"
   done
 
   {
@@ -471,7 +490,7 @@ run_wetest_webshell_collection() {
   grep -E '^package:' "${OUT_DIR}/webshell-raw/packages.txt" > "${OUT_DIR}/risk-package-filter.txt" || true
   clean_package_dump "${OUT_DIR}/webshell-raw/package.txt" > "${OUT_DIR}/package.txt"
   cp "${OUT_DIR}/webshell-raw/launch.txt" "${OUT_DIR}/am-start.log"
-  redact_secret_file "${OUT_DIR}/am-start.log" "${CLOUD_TEST_TOKEN}"
+  redact_sensitive_file "${OUT_DIR}/am-start.log" "${CLOUD_TEST_TOKEN}" "${E2E_TOKEN}"
 
   grep -Ei 'Leona|LeonaE2E|LeonaCloudTest|leonasec|BoxId|canonical|verdict|risk|evidence|attestation|SSLHandshake|CertPath|Trust anchor' \
     "${OUT_DIR}/webshell-raw/logcat.txt" | grep -Ev 'AccessibilityNodeInfoDumper' > "${OUT_DIR}/logcat.leona.txt" || true

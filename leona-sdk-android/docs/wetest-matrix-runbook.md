@@ -57,6 +57,24 @@ evidence-collection launch scope:
 - Root, Magisk, hidden-environment, one-click-new-device/clone, custom ROM, and
   production attestation provider coverage move to the post-release matrix.
 
+### Tested Device Ledger
+
+Check this table before starting a new WeTest session. Do not retest an already
+covered brand/model/Android row unless the goal is an explicit regression check.
+
+| Date | Brand | Model / marketing name | Android | Result | Output / BoxId | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-05-06 | Samsung | SM-N9760 / Galaxy SM-N9760 | 12 | pass | `01KQX4MAMPY17AYSCP8CZ2W81B` | Clean OEM; server scorer false-positive issue around `runtime.mapping.*` was fixed and redeployed. |
+| 2026-05-06 | Xiaomi | M2006J10C / Redmi K30 Ultra | 12 | pass | `01KQX0C9NNBS1ZT600Y94HSYRA` | Clean OEM; no emulator/root/hook findings after server scoring fix. |
+| 2026-05-06 | Redmi / Xiaomi | M2007J17C / Redmi Note 9 Pro 5G | 10 | pass | `01KQYP2JND3JRH0XZQPQ3XW459` | Clean OEM; WDB unstable, webshell direct succeeded. |
+| 2026-05-06 | Asus | ASUS_I003DD / ROG Phone 3 | 12 | pass | `01KQXJT0AHPVK3MFVZF9N7B2QN` | Clean OEM; online recent boxes returned `CLEAN / 0`. |
+| 2026-05-06 | HONOR | OXP-AN00 / Honor Play4 Pro | 10 | pass | `01KQY869HGJYZAD65HCAMDF16Y` | Clean OEM; validated Android 10 X25519 fallback. |
+| 2026-05-06 | vivo / iQOO | V2049A / iQOO 7 | 14 | blocked | `/tmp/leona-wetest-vivo-iqoo7-android14-cloudtest-direct-retry-20260506-211932/` | Device posture clean; app timed out to an SCDN HTTPS node. Post-release network/node retest. |
+| 2026-05-07 | vivo | V2429A / vivo S20 | 15 | blocked | `/tmp/leona-wetest-vivo-v2429a-android15-20260507-0330/` | Device posture clean and app non-debug; WDB became `offline`, webshell/UI trigger did not produce BoxId. |
+| 2026-05-07 | OPPO | PCAM10 / OPPO A9 | 9 | blocked | `/tmp/leona-wetest-oppo-a9-pcam10-android9-webshell-direct-20260507-035232/` | Page install stayed at waiting state; WDB became `offline`, webshell closed before prompt. Try another OPPO model before retrying PCAM10. |
+| 2026-05-07 | OPPO | PDCM00 / OPPO Reno3 | 10 | pass | `01KQZEKZ9W5CBEZJH9EDWFBTCC`; `/tmp/leona-wetest-oppo-reno3-pdcm00-android10-webshell-direct-20260507-041037/` | Clean OEM; page install stayed at waiting state but package installed, webshell direct succeeded, server returned `CLEAN / 0`. |
+| 2026-05-07 | HUAWEI | HMA-TL00 / Huawei Mate 20 | 10 | pass | `01KQZE26F75XECKCGKVN59BS5M`; `/tmp/leona-wetest-huawei-mate20-hmatl00-android10-webshell-direct-retry-20260507-040055/` | Clean OEM; server returned `CLEAN / 0`. Low-trust client ROM telemetry included `client.rom.custom_aosp_like` / `client.rom.generic_aosp_like`; keep as evidence-label follow-up, not a release blocker. |
+
 Release-gate success requires:
 
 - The latest `cloudTest` or release-like non-debug APK installs and starts.
