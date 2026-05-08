@@ -219,13 +219,6 @@ void check_virtualization_props(EventList& out) {
           Severity::HIGH,
       },
       {
-          "qemu.hw.mainkeys",
-          "1",
-          "env.emulator.runtime.qemu_property_namespace",
-          "QEMU property namespace is visible inside Android",
-          Severity::MEDIUM,
-      },
-      {
           "deviceinfo.player.setting",
           "1",
           "env.emulator.runtime.player_settings",

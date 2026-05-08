@@ -48,7 +48,8 @@ evidence-collection launch scope:
 - Online homepage, health check, and recent BoxID query are reachable through
   `https://leona.xiyanshan.com/`.
 - Clean OEM coverage includes Asus Android 12, HONOR Android 10, Xiaomi/Redmi
-  Android 10, plus prior Samsung/Xiaomi Android 12 regression rows.
+  Android 10, vivo Android 10, plus prior Samsung/Xiaomi Android 12 regression
+  rows.
 - The latest clean OEM rows did not show actual Frida, Magisk, Xposed, unidbg,
   HONEYPOT, root, or emulator findings.
 - WeTest vivo/iQOO Android 14 was attempted, but the cloud device timed out
@@ -74,6 +75,19 @@ covered brand/model/Android row unless the goal is an explicit regression check.
 | 2026-05-07 | OPPO | PCAM10 / OPPO A9 | 9 | blocked | `/tmp/leona-wetest-oppo-a9-pcam10-android9-webshell-direct-20260507-035232/` | Page install stayed at waiting state; WDB became `offline`, webshell closed before prompt. Try another OPPO model before retrying PCAM10. |
 | 2026-05-07 | OPPO | PDCM00 / OPPO Reno3 | 10 | pass | `01KQZEKZ9W5CBEZJH9EDWFBTCC`; `/tmp/leona-wetest-oppo-reno3-pdcm00-android10-webshell-direct-20260507-041037/` | Clean OEM; page install stayed at waiting state but package installed, webshell direct succeeded, server returned `CLEAN / 0`. |
 | 2026-05-07 | HUAWEI | HMA-TL00 / Huawei Mate 20 | 10 | pass | `01KQZE26F75XECKCGKVN59BS5M`; `/tmp/leona-wetest-huawei-mate20-hmatl00-android10-webshell-direct-retry-20260507-040055/` | Clean OEM; server returned `CLEAN / 0`. Low-trust client ROM telemetry included `client.rom.custom_aosp_like` / `client.rom.generic_aosp_like`; keep as evidence-label follow-up, not a release blocker. |
+| 2026-05-09 | vivo | V2031A / vivo Y73s | 10 | pass | `01KR4FSS1RJVT3Q4FT1N0ER9AX`; `/tmp/leona-wetest-vivo-y73s-v2031a-android10-fixed-installed-direct-20260509-030722/` | Clean OEM; first run exposed false emulator evidence from `qemu.hw.mainkeys*`, a vivo physical navigation-key property. Fixed APK SHA-256 `8580d1a571f865b1deb1e64ed5c2b088d3e35209c4cabb25385febd84b52d544` removed that signal and returned `CLEAN / 0`; authoritative events only `runtime.mapping.anonymous_executable_summary` and `tamper.installer.missing`. |
+
+### Known False-Positive Regression Notes
+
+- vivo Android 10 exposes `qemu.hw.mainkeys=1` / `qemu.hw.mainkeys.vivo=0` as
+  physical navigation-key properties. These keys must not be treated as QEMU or
+  emulator evidence. The fixed native detector no longer probes
+  `qemu.hw.mainkeys`, and the host native fixture asserts that
+  `env.emulator.runtime.qemu_property_namespace` is not emitted for this case.
+- On vivo Android 10, page-based upgrade install can stay on the OEM installer
+  prompt. For repeatable runs, uninstall the old package first, push the APK to
+  `/data/local/tmp`, let the OEM installer finish, then verify the installed APK
+  hash before running direct `sense()`.
 
 Release-gate success requires:
 

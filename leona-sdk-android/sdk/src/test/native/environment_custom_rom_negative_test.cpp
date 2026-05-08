@@ -66,7 +66,8 @@ int main() {
   set_fixture("LEONA_ENV_PROP_RO_TREBLE_ENABLED", "true");
   set_fixture("LEONA_ENV_PROP_RO_KERNEL_QEMU", "0");
   set_fixture("LEONA_ENV_PROP_RO_BOOT_QEMU", "0");
-  set_fixture("LEONA_ENV_PROP_QEMU_HW_MAINKEYS", "0");
+  set_fixture("LEONA_ENV_PROP_QEMU_HW_MAINKEYS", "1");
+  set_fixture("LEONA_ENV_PROP_QEMU_HW_MAINKEYS_VIVO", "0");
 
   set_fixture(
       "LEONA_ENV_FILE__PROC_CPUINFO",
@@ -106,6 +107,11 @@ int main() {
               "ro.kernel.qemu=0 must not emit qemu kernel evidence");
   expect_true(first_event(events, "env.emulator.runtime.qemu_boot") == nullptr,
               "ro.boot.qemu=0 must not emit qemu boot evidence");
+  expect_true(
+      first_event(events, "env.emulator.runtime.qemu_property_namespace") ==
+          nullptr,
+      "qemu.hw.mainkeys is a physical-device navigation-key property and must "
+      "not emit emulator evidence");
   expect_true(
       first_event(events, "env.emulator.kernel.virtual_boot_args") == nullptr,
       "custom ROM boot args must not emit virtual boot evidence");

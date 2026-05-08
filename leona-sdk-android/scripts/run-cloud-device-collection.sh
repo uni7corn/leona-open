@@ -398,11 +398,13 @@ run_adb_collection() {
   echo "[5/7] Launch sample"
   adb_cmd logcat -c || true
   if [[ "${TRIGGER_SENSE}" == "direct" ]]; then
+    adb_cmd shell am start -n "${ACTIVITY}" > "${OUT_DIR}/am-start.log" || true
+    sleep 2
     adb_cmd shell am broadcast \
       -a "${CLOUD_TEST_SENSE_ACTION}" \
       -n "${PACKAGE}/.CloudTestSenseReceiver" \
       --es io.leonasec.leona.sample.CLOUD_TEST_TOKEN "${CLOUD_TEST_TOKEN}" \
-      > "${OUT_DIR}/am-start.log" || true
+      >> "${OUT_DIR}/am-start.log" || true
     redact_sensitive_file "${OUT_DIR}/am-start.log" "${CLOUD_TEST_TOKEN}" "${E2E_TOKEN}"
     sleep "${SENSE_WAIT_SECONDS}"
   elif [[ -n "${E2E_TOKEN}" ]]; then
@@ -458,7 +460,7 @@ run_wetest_webshell_collection() {
   echo "[1/7] Device via WeTest webshell"
   local webshell_launch_cmd="launch=am start -n ${ACTIVITY}; sleep 2"
   if [[ "${TRIGGER_SENSE}" == "direct" ]]; then
-    webshell_launch_cmd="launch=logcat -c; am broadcast -a ${CLOUD_TEST_SENSE_ACTION} -n ${PACKAGE}/.CloudTestSenseReceiver --es io.leonasec.leona.sample.CLOUD_TEST_TOKEN $(single_quote "${CLOUD_TEST_TOKEN}"); sleep ${SENSE_WAIT_SECONDS}"
+    webshell_launch_cmd="launch=logcat -c; am start -n ${ACTIVITY}; sleep 2; am broadcast -a ${CLOUD_TEST_SENSE_ACTION} -n ${PACKAGE}/.CloudTestSenseReceiver --es io.leonasec.leona.sample.CLOUD_TEST_TOKEN $(single_quote "${CLOUD_TEST_TOKEN}"); sleep ${SENSE_WAIT_SECONDS}"
   elif [[ "${TRIGGER_SENSE}" == "ui" ]]; then
     webshell_launch_cmd="${webshell_launch_cmd}; i=0; while [ \$i -lt ${PRE_SENSE_SWIPES} ]; do input swipe 540 2050 540 500 800; sleep 1; i=\$((i+1)); done; bounds=\$(uiautomator dump /dev/tty 2>/dev/null | tr '\r' '\n' | sed -n 's/.*resource-id=\"${PACKAGE}:id\\/buttonSense\"[^>]*bounds=\"\\[\\([0-9][0-9]*\\),\\([0-9][0-9]*\\)\\]\\[\\([0-9][0-9]*\\),\\([0-9][0-9]*\\)\\]\".*/\\1 \\2 \\3 \\4/p' | head -1); set -- \$bounds; if [ \$# -eq 4 ]; then input tap \$(((\$1+\$3)/2)) \$(((\$2+\$4)/2)); else input tap ${SENSE_TAP_X} ${SENSE_TAP_Y}; fi; sleep ${SENSE_WAIT_SECONDS}"
   else
