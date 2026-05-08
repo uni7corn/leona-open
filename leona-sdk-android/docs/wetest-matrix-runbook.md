@@ -76,6 +76,7 @@ covered brand/model/Android row unless the goal is an explicit regression check.
 | 2026-05-07 | OPPO | PDCM00 / OPPO Reno3 | 10 | pass | `01KQZEKZ9W5CBEZJH9EDWFBTCC`; `/tmp/leona-wetest-oppo-reno3-pdcm00-android10-webshell-direct-20260507-041037/` | Clean OEM; page install stayed at waiting state but package installed, webshell direct succeeded, server returned `CLEAN / 0`. |
 | 2026-05-07 | HUAWEI | HMA-TL00 / Huawei Mate 20 | 10 | pass | `01KQZE26F75XECKCGKVN59BS5M`; `/tmp/leona-wetest-huawei-mate20-hmatl00-android10-webshell-direct-retry-20260507-040055/` | Clean OEM; server returned `CLEAN / 0`. Low-trust client ROM telemetry included `client.rom.custom_aosp_like` / `client.rom.generic_aosp_like`; keep as evidence-label follow-up, not a release blocker. |
 | 2026-05-09 | vivo | V2031A / vivo Y73s | 10 | pass | `01KR4FSS1RJVT3Q4FT1N0ER9AX`; `/tmp/leona-wetest-vivo-y73s-v2031a-android10-fixed-installed-direct-20260509-030722/` | Clean OEM; first run exposed false emulator evidence from `qemu.hw.mainkeys*`, a vivo physical navigation-key property. Fixed APK SHA-256 `8580d1a571f865b1deb1e64ed5c2b088d3e35209c4cabb25385febd84b52d544` removed that signal and returned `CLEAN / 0`; authoritative events only `runtime.mapping.anonymous_executable_summary` and `tamper.installer.missing`. |
+| 2026-05-09 | realme | RMX2117 / realme Q2 5G | 10 | pass | `01KR4PKSRD3ZSGX0J6FXRXN2JZ`; `/tmp/leona-wetest-realme-q2-rmx2117-android10-clockfix-webshell-20260509-050630/` | Clean OEM; first run failed with server timestamp-skew rejection because the WeTest device wall clock was far from server time. Handshake now returns `serverTimeMillis`, the private reporting engine signs `sense()` with server-adjusted time, and the rebuilt cloudTest APK SHA-256 `7cab438a664ef29c1a2e1468a2ea172b1d71d3d1c51b7b1d5a265bde4ab1b157` returned `CLEAN / 0`. |
 
 ### Known False-Positive Regression Notes
 
@@ -88,6 +89,10 @@ covered brand/model/Android row unless the goal is an explicit regression check.
   prompt. For repeatable runs, uninstall the old package first, push the APK to
   `/data/local/tmp`, let the OEM installer finish, then verify the installed APK
   hash before running direct `sense()`.
+- Some WeTest devices can have a badly skewed wall clock. The server must return
+  handshake `serverTimeMillis`, and secure reporting must sign uploads with the
+  persisted server clock offset. Do not classify timestamp-skew upload failures
+  as device environment evidence.
 
 Release-gate success requires:
 
