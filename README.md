@@ -59,7 +59,7 @@ Leona.init(
     context = this,
     config = LeonaConfig.Builder()
         .apiKey("your-leona-api-key")
-        .reportingEndpoint("https://api.example.leona/v1")
+        .reportingEndpoint("https://leona.xiyanshan.com")
         .build()
 )
 
@@ -67,6 +67,100 @@ val boxId = Leona.sense()
 ```
 
 Send `boxId` to your business backend. Your backend queries the Leona verdict API and applies your product policy.
+
+## Backend: Exchange BoxId for Device Evidence
+
+The Android app must never call the evidence query API directly. The app sends
+the opaque `BoxId` to your backend, and your backend calls Leona with your
+tenant `SecretKey`.
+
+```text
+Android app
+  -> Leona.sense() -> BoxId
+  -> your login/payment/API request carries BoxId
+  -> your backend calls POST /v1/verdict
+  -> Leona returns deviceFingerprint, canonicalDeviceId, events,
+     provenance, and policyExplanation
+```
+
+Key separation:
+
+- `LEONA_API_KEY` / AppKey: safe to configure in the APK; used for evidence upload.
+- `LEONA_SECRET_KEY`: backend-only; used to query a BoxId. Never embed it in an APK.
+
+Request:
+
+```http
+POST https://leona.xiyanshan.com/v1/verdict
+Authorization: Bearer <LEONA_SECRET_KEY>
+Content-Type: application/json
+X-Leona-Timestamp: <unix-time-ms>
+X-Leona-Nonce: <random-nonce>
+X-Leona-Signature: <base64url-hmac-sha256>
+
+{"boxId":"01KR0000000000000000000000"}
+```
+
+Signature input:
+
+```text
+signingText = timestamp + "\n" + nonce + "\n" + sha256(requestBody)
+signature = base64url_no_padding(HMAC-SHA256(secretKey, signingText))
+```
+
+Minimal Node.js example:
+
+```js
+import crypto from "node:crypto";
+
+async function queryLeonaBox(boxId) {
+  const endpoint = "https://leona.xiyanshan.com/v1/verdict";
+  const secret = process.env.LEONA_SECRET_KEY;
+  const body = JSON.stringify({ boxId });
+  const timestamp = Date.now().toString();
+  const nonce = crypto.randomBytes(16).toString("base64url");
+  const bodySha256 = crypto.createHash("sha256").update(body).digest("hex");
+  const signingText = `${timestamp}\n${nonce}\n${bodySha256}`;
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(signingText)
+    .digest("base64url");
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${secret}`,
+      "Content-Type": "application/json",
+      "X-Leona-Timestamp": timestamp,
+      "X-Leona-Nonce": nonce,
+      "X-Leona-Signature": signature,
+    },
+    body,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Leona verdict query failed: ${response.status} ${await response.text()}`);
+  }
+  return response.json();
+}
+```
+
+Important response fields:
+
+- `deviceFingerprint`: Leona device fingerprint identifier.
+- `canonicalDeviceId`: stable app-scoped Leona device id, usually prefixed with `L`.
+- `events`: collected device/environment evidence events.
+- `authoritativeRiskTags`: tags derived from authoritative server/native evidence.
+- `telemetryRiskTags`: low-trust telemetry kept for explanation/debugging.
+- `riskTagsBySource`: source breakdown such as `native_payload`, `server_policy`, `client_header`.
+- `provenance` and `policyExplanation`: why the evidence report looks the way it does.
+
+`/v1/verdict` is single-use. After a successful query, the BoxId is consumed;
+subsequent calls return `410 LEONA_BOX_ALREADY_USED`. Cache the returned report
+inside your own business order/login/risk record if you need to read it again.
+
+Leona returns evidence. Your backend decides whether to allow, challenge, deny,
+honeypot, or take any other product action.
 
 ## Build Public SDK
 

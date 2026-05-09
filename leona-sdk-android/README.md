@@ -306,6 +306,126 @@ val loginResponse = myApi.login(
 // Your backend calls Leona's API with boxId and gets the environment evidence report.
 ```
 
+## Backend: query device evidence by BoxId
+
+The mobile app only forwards the opaque `BoxId`. The customer's backend owns
+the server-side query and business decision.
+
+```text
+App -> your backend: login/payment/API request with leonaBoxId
+Your backend -> Leona: POST /v1/verdict with tenant SecretKey
+Leona -> your backend: deviceFingerprint, canonicalDeviceId, events, provenance
+Your backend -> product: allow/challenge/deny according to your own policy
+```
+
+Use different keys for the two sides:
+
+- `LEONA_API_KEY` / AppKey goes into the Android app and is used by the SDK to
+  upload evidence.
+- `LEONA_SECRET_KEY` stays only on your backend and is used to query evidence
+  for a BoxId.
+
+`POST /v1/verdict`:
+
+```http
+POST https://leona.xiyanshan.com/v1/verdict
+Authorization: Bearer <LEONA_SECRET_KEY>
+Content-Type: application/json
+X-Leona-Timestamp: <unix-time-ms>
+X-Leona-Nonce: <random-nonce>
+X-Leona-Signature: <base64url-hmac-sha256>
+
+{"boxId":"01KR0000000000000000000000"}
+```
+
+Signature:
+
+```text
+signingText = timestamp + "\n" + nonce + "\n" + sha256(requestBody)
+signature = base64url_no_padding(HMAC-SHA256(secretKey, signingText))
+```
+
+Node.js example:
+
+```js
+import crypto from "node:crypto";
+
+async function queryLeonaEvidence(boxId) {
+  const endpoint = "https://leona.xiyanshan.com/v1/verdict";
+  const secret = process.env.LEONA_SECRET_KEY;
+  const body = JSON.stringify({ boxId });
+  const timestamp = Date.now().toString();
+  const nonce = crypto.randomBytes(16).toString("base64url");
+  const bodySha256 = crypto.createHash("sha256").update(body).digest("hex");
+  const signingText = `${timestamp}\n${nonce}\n${bodySha256}`;
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(signingText)
+    .digest("base64url");
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${secret}`,
+      "Content-Type": "application/json",
+      "X-Leona-Timestamp": timestamp,
+      "X-Leona-Nonce": nonce,
+      "X-Leona-Signature": signature,
+    },
+    body,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Leona query failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json();
+}
+```
+
+Representative response shape:
+
+```json
+{
+  "boxId": "01KR0000000000000000000000",
+  "deviceFingerprint": "fp_...",
+  "canonicalDeviceId": "L...",
+  "risk": {
+    "level": "clean",
+    "score": 0,
+    "reasons": []
+  },
+  "events": [
+    {
+      "id": "environment.emulator.detected",
+      "category": "ENVIRONMENT",
+      "severity": "MEDIUM",
+      "evidence": {
+        "source": "native_payload",
+        "trust": "authoritative"
+      }
+    }
+  ],
+  "authoritativeRiskTags": [],
+  "telemetryRiskTags": [],
+  "riskTagsBySource": {},
+  "provenance": {},
+  "policyExplanation": {}
+}
+```
+
+Important semantics:
+
+- `decision` is always neutral compatibility data. Leona does not tell your
+  business to allow, reject, or block.
+- `events` are the raw evidence details your backend should persist with the
+  related login/order/payment/risk record.
+- `authoritativeRiskTags` come from server/native authoritative sources.
+- `telemetryRiskTags` and `riskTagsBySource.client_header` are low-trust
+  context for explanation and debugging.
+- `/v1/verdict` is single-use. A successful query consumes the BoxId; repeated
+  calls return `410 LEONA_BOX_ALREADY_USED`. Cache the returned report in your
+  own backend if you need to read it again.
+
 From Java, use the async variant:
 
 ```java
