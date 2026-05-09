@@ -15,6 +15,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 defaults:
   run:
     working-directory: leona-sdk-android
@@ -182,11 +185,22 @@ jobs:
       - name: Build release AAR
         run: ./gradlew :sdk:assembleRelease --no-daemon
 
+      - name: Prepare release assets
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p build/release-assets
+          cp sdk/build/outputs/aar/sdk-release.aar "build/release-assets/leona-sdk-android-${VERSION}.aar"
+          (
+            cd build/release-assets
+            sha256sum "leona-sdk-android-${VERSION}.aar" > "leona-sdk-android-${VERSION}.aar.sha256"
+          )
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            leona-sdk-android/sdk/build/outputs/aar/sdk-release.aar
+            leona-sdk-android/build/release-assets/*.aar
+            leona-sdk-android/build/release-assets/*.sha256
           draft: false
           prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
           generate_release_notes: true
