@@ -97,7 +97,7 @@ class LeonaSupportBundleTest {
         )
         val bundle = LeonaSupportBundle(
             generatedAtMillis = 123L,
-            sdkVersion = "0.1.0-alpha.1",
+            sdkVersion = "0.1.0",
             tenantId = "tenant-a",
             appId = "app-a",
             region = "CN_BJ",

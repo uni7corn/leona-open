@@ -11,7 +11,8 @@
  *   - the per-event encoding
  *   - the outer encryption (v0.2, placeholder XOR-scrambler in alpha)
  *
- * v0.1.0-alpha.1 does NOT yet include real encryption; the XOR scrambler
+ * The public v0.1.0 collector does NOT include the private production
+ * encryption layer; the XOR scrambler
  * exists to keep the payload unreadable to casual inspection and to fix the
  * wire format so v0.2 can drop in real AES-GCM without moving the bytes
  * around.

@@ -4,7 +4,7 @@
  *
  * Runtime injection detector.
  *
- * Current v0.1.0-alpha.1 checks:
+ * Current v0.1.0 checks:
  *   1) TracerPid    — debugger or gdbserver attached
  *   2) frida-gadget — library name present in /proc/self/maps (weak)
  *   3) Frida trampolines — machine-code pattern scan in executable pages

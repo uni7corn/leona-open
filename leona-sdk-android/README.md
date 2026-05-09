@@ -6,7 +6,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Min SDK](https://img.shields.io/badge/minSdk-21-brightgreen)]()
-[![Version](https://img.shields.io/badge/version-0.1.0--alpha.1-orange)]()
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)]()
 
 </div>
 
@@ -57,13 +57,37 @@ and delivers it to the server without ever materializing typed results in
 the JVM. Attackers spend days defeating layers that weren't protecting
 anything.
 
+## Install from GitHub Release
+
+Download `leona-sdk-android-0.1.0.aar` from the GitHub Release and place it in
+your app module, for example `app/libs/leona-sdk-android-0.1.0.aar`.
+
+```kotlin
+// app/build.gradle.kts
+dependencies {
+    implementation(files("libs/leona-sdk-android-0.1.0.aar"))
+
+    // Transitive dependencies required by the public AAR.
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+}
+```
+
+The host app must request network access:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
+
 ## Quick start
 
 ```kotlin
 // Application.onCreate()
 Leona.init(this, LeonaConfig.Builder()
     .apiKey("your-leona-api-key")
-    .reportingEndpoint("https://api.leonasec.io")
+    .reportingEndpoint("https://leona.xiyanshan.com")
     // Optional tamper baselines (alpha):
     .expectedPackageName("com.example.app")
     .allowedInstallerPackages("com.android.vending")
@@ -322,7 +346,9 @@ your reporting endpoint does. The public surface remains intentionally small.
 
 ## Current status
 
-`0.1.0-alpha.1` is a **real engineering alpha**, not a design-only drop.
+`0.1.0` is the first public SDK release. It is ready for hosted Leona API
+integration, while advanced private detectors and hosted policy remain
+closed-source.
 
 - The SDK already contains the native detection path, JNI bridge, payload
   format, and the Kotlin-side secure upload implementation.
@@ -346,7 +372,7 @@ For security reasons, this public repository does not include:
 - risk scoring weights and tenant policy execution
 - internal operations, deployment, and release automation
 
-## What v0.1.0-alpha.1 detects
+## What v0.1.0 detects
 
 | Category | Check | Note |
 |----------|-------|------|
@@ -354,9 +380,9 @@ For security reasons, this public repository does not include:
 | Injection | `frida-gadget` / `frida-agent` as mapped library | weak signal, corroboration only |
 | Injection | **Frida trampoline machine-code pattern** (ARM64) | Leona's core signal |
 | Environment | Emulator system-property heuristic | QEMU, Genymotion, etc. |
-| **Unidbg** | CNTVCT_EL0 / CNTFRQ_EL0 timing coherence | **New in alpha.1** |
-| **Unidbg** | Parent process non-zygote | **New in alpha.1** |
-| **Unidbg** | `/proc/cpuinfo` shape | **New in alpha.1** |
+| **Unidbg** | CNTVCT_EL0 / CNTFRQ_EL0 timing coherence | **Included in v0.1.0** |
+| **Unidbg** | Parent process non-zygote | **Included in v0.1.0** |
+| **Unidbg** | `/proc/cpuinfo` shape | **Included in v0.1.0** |
 
 ## Roadmap — what's coming
 

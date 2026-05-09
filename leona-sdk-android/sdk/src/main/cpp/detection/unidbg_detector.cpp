@@ -15,7 +15,7 @@
  * about every single signal. Our job is to make the cost of faking every
  * signal higher than the reward.
  *
- * Signals in this first cut (v0.1.0-alpha.1):
+ * Signals in this first public release (v0.1.0):
  *   1. CNTVCT_EL0 / CNTFRQ_EL0 timing coherence.
  *      Real hardware: a 4K xorshift loop takes ~single-digit microseconds
  *      and the virtual timer advances consistently with the declared
