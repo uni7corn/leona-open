@@ -145,6 +145,10 @@ async function queryLeonaBox(boxId) {
 }
 ```
 
+Ready-to-run backend examples are available in
+[`examples/boxid-verdict`](examples/boxid-verdict) for Python, Java, Go, C,
+C++, and Node.js.
+
 Important response fields:
 
 - `deviceFingerprint`: Leona device fingerprint identifier.

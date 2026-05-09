@@ -382,6 +382,10 @@ async function queryLeonaEvidence(boxId) {
 }
 ```
 
+Ready-to-run backend examples are available in
+[`../examples/boxid-verdict`](../examples/boxid-verdict) for Python, Java, Go,
+C, C++, and Node.js.
+
 Representative response shape:
 
 ```json

@@ -10,6 +10,8 @@
 Thumbs.db
 .idea/
 .vscode/
+__pycache__/
+*.pyc
 
 # Temporary release artifacts
 /tmp/
