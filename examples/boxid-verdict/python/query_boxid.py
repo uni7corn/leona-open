@@ -25,31 +25,46 @@ def require_env(name: str) -> str:
     return value
 
 
-def main() -> int:
-    secret = require_env("LEONA_SECRET_KEY")
-    box_id = require_env("BOX_ID")
-    endpoint = os.environ.get("LEONA_ENDPOINT", DEFAULT_ENDPOINT)
-
+def build_signed_request(secret: str, box_id: str, endpoint: str, timestamp: str, nonce: str) -> dict:
     body = json.dumps({"boxId": box_id}, separators=(",", ":")).encode("utf-8")
-    timestamp = str(int(time.time() * 1000))
-    nonce = base64url_no_padding(secrets.token_bytes(16))
     body_sha256 = hashlib.sha256(body).hexdigest()
     signing_text = f"{timestamp}\n{nonce}\n{body_sha256}".encode("utf-8")
     signature = base64url_no_padding(
         hmac.new(secret.encode("utf-8"), signing_text, hashlib.sha256).digest()
     )
-
-    request = urllib.request.Request(
-        endpoint,
-        data=body,
-        method="POST",
-        headers={
+    return {
+        "endpoint": endpoint,
+        "body": body.decode("utf-8"),
+        "bodySha256": body_sha256,
+        "headers": {
             "Authorization": f"Bearer {secret}",
             "Content-Type": "application/json",
             "X-Leona-Timestamp": timestamp,
             "X-Leona-Nonce": nonce,
             "X-Leona-Signature": signature,
         },
+    }
+
+
+def main() -> int:
+    secret = require_env("LEONA_SECRET_KEY")
+    box_id = require_env("BOX_ID")
+    endpoint = os.environ.get("LEONA_ENDPOINT", DEFAULT_ENDPOINT)
+
+    timestamp = os.environ.get("LEONA_TIMESTAMP", str(int(time.time() * 1000)))
+    nonce = os.environ.get("LEONA_NONCE", base64url_no_padding(secrets.token_bytes(16)))
+    signed = build_signed_request(secret, box_id, endpoint, timestamp, nonce)
+
+    if os.environ.get("LEONA_DRY_RUN") == "1":
+        json.dump(signed, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+        return 0
+
+    request = urllib.request.Request(
+        endpoint,
+        data=signed["body"].encode("utf-8"),
+        method="POST",
+        headers=signed["headers"],
     )
 
     try:

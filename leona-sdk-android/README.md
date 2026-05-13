@@ -6,7 +6,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Min SDK](https://img.shields.io/badge/minSdk-21-brightgreen)]()
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)]()
 
 </div>
 
@@ -57,15 +57,79 @@ and delivers it to the server without ever materializing typed results in
 the JVM. Attackers spend days defeating layers that weren't protecting
 anything.
 
-## Install from GitHub Release
+## Install from Maven
 
-Download `leona-sdk-android-0.1.0.aar` from the GitHub Release and place it in
-your app module, for example `app/libs/leona-sdk-android-0.1.0.aar`.
+The first automated Maven channel for `v0.2.0` is GitHub Packages. It is the
+lowest-risk public-safe path for this repository because tag builds can publish
+with the repository-scoped `GITHUB_TOKEN` and do not require Maven Central
+namespace approval, Central Portal tokens, or PGP signing keys.
+
+```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://maven.pkg.github.com/zedbully/leona-open") {
+            credentials {
+                username = providers.gradleProperty("gpr.user")
+                    .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+                    .orNull
+                password = providers.gradleProperty("gpr.key")
+                    .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+                    .orNull
+            }
+        }
+    }
+}
+```
 
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation(files("libs/leona-sdk-android-0.1.0.aar"))
+    implementation("io.leonasec:leona-sdk-android:0.2.0")
+}
+```
+
+GitHub Packages may require a token with `read:packages` for Gradle dependency
+resolution. Maven Central remains the preferred zero-token public consumer
+experience, but it is blocked until the project has a verified namespace,
+Central Portal publishing credentials, and signing material.
+
+Before cutting a tag, run the local consumer gate:
+
+```bash
+./scripts/verify-maven-local-consumer.sh
+```
+
+This publishes `io.leonasec:leona-sdk-android:0.2.0` into an isolated temporary
+Maven local repository, then resolves it from a separate Gradle consumer project
+and checks that the AAR plus expected public transitive dependencies are
+available. This does not replace the required post-tag GitHub Packages remote
+pull check.
+
+The release-readiness wrapper combines the lightweight local checks and lists
+the external gates that cannot be completed until a tag or real device is
+available:
+
+```bash
+./scripts/verify-v0.2-release-readiness.sh
+```
+
+Set `LEONA_RUN_MAVEN_CONSUMER_GATE=1` or `LEONA_RUN_PUBLIC_GRADLE_GATE=1` when
+you want that wrapper to rerun the heavier Gradle gates instead of only checking
+their configured entrypoints.
+
+## Install from GitHub Release
+
+GitHub Release AAR downloads remain supported as a fallback. Download
+`leona-sdk-android-0.2.0.aar` from the GitHub Release and place it in your app
+module, for example `app/libs/leona-sdk-android-0.2.0.aar`.
+
+```kotlin
+// app/build.gradle.kts
+dependencies {
+    implementation(files("libs/leona-sdk-android-0.2.0.aar"))
 
     // Transitive dependencies required by the public AAR.
     implementation("androidx.core:core-ktx:1.13.1")
@@ -270,6 +334,36 @@ If your Leona server returns a `tamperBaseline` object from `/v1/handshake`,
 the SDK will merge that remote baseline with the local Builder values before
 each sensing session.
 
+### Public hosted reporting mode
+
+The public AAR can obtain a BoxId without packaging `:sdk-private-core`. When
+`reportingEndpoint` and `apiKey` are configured and the closed-source secure
+engine is absent, `SecureChannel` uses public hosted reporting mode:
+
+- `POST <reportingEndpoint>/v1/sense/public`
+- Header `X-Leona-App-Key: <your-leona-api-key>`
+- Header `X-Leona-Reporting-Mode: public_hosted`
+- JSON body containing an opaque base64 native payload, hashed device identity
+  fields, and low-trust evidence metadata.
+
+If `reportingEndpoint` already ends with `/v1` or `/v1/sense`, the SDK resolves
+the public hosted path to `/v1/sense/public`. The hosted API returns an opaque
+`boxId`, and may also return `canonicalDeviceId` plus evidence summary fields.
+The client still does not make allow/reject/block decisions; your backend must
+query `/v1/verdict` with the SecretKey and apply its own business policy.
+
+Public hosted reporting does not require the APK to sign uploads with the
+device wall clock. `serverTimeMillis` / `serverClockOffsetMillis` are private
+signed-transport diagnostics in `v0.2.0`, not public hosted response fields. If
+your backend query receives a timestamp-related error, treat it as a
+transport/authentication issue and retry with a fresh backend timestamp; do not
+interpret it as device risk evidence.
+
+Advanced private secure transport, attestation binding, encrypted sessions,
+hosted policy baselines, and private detector catalogs remain closed-source.
+Deployments that require those features should include the private runtime or
+use Leona hosted service support for the public mode above.
+
 You can generate the APK-side baseline fields from a built APK:
 
 ```bash
@@ -335,7 +429,7 @@ X-Leona-Timestamp: <unix-time-ms>
 X-Leona-Nonce: <random-nonce>
 X-Leona-Signature: <base64url-hmac-sha256>
 
-{"boxId":"01KR0000000000000000000000"}
+{"boxId":"<BOX_ID_FROM_APP>"}
 ```
 
 Signature:
@@ -386,11 +480,22 @@ Ready-to-run backend examples are available in
 [`../examples/boxid-verdict`](../examples/boxid-verdict) for Python, Java, Go,
 C, C++, and Node.js.
 
+Backend cache flow:
+
+```text
+Leona.sense()
+  -> app sends BoxId to customer backend
+  -> backend checks its login/order/payment/risk record cache
+  -> cache miss: backend signs POST /v1/verdict with SecretKey
+  -> backend stores the returned evidence report before making a business action
+  -> retries/audits read the cached report instead of reusing the consumed BoxId
+```
+
 Representative response shape:
 
 ```json
 {
-  "boxId": "01KR0000000000000000000000",
+  "boxId": "<BOX_ID_FROM_APP>",
   "deviceFingerprint": "fp_...",
   "canonicalDeviceId": "L...",
   "risk": {
@@ -429,6 +534,15 @@ Important semantics:
 - `/v1/verdict` is single-use. A successful query consumes the BoxId; repeated
   calls return `410 LEONA_BOX_ALREADY_USED`. Cache the returned report in your
   own backend if you need to read it again.
+
+Customer integration checklist:
+
+- Android SDK receives only the Leona AppKey and reporting endpoint.
+- Backend stores the Leona SecretKey outside the APK and signs verdict queries.
+- App forwards only the opaque `BoxId` to the backend.
+- Backend caches the first successful `/v1/verdict` report with its own business record.
+- Backend treats `410 LEONA_BOX_ALREADY_USED` as an idempotency/cache condition.
+- Backend owns allow/challenge/deny/manual-review policy; Leona provides evidence, not final business decisions.
 
 From Java, use the async variant:
 
@@ -470,7 +584,8 @@ your reporting endpoint does. The public surface remains intentionally small.
 
 ## Current status
 
-`0.1.0` is the first public SDK release. It is ready for hosted Leona API
+`0.2.0` keeps the public Android SDK integration surface stable while adding an
+automated Maven distribution path. The SDK is ready for hosted Leona API
 integration, while advanced private detectors and hosted policy remain
 closed-source.
 
@@ -510,17 +625,10 @@ For security reasons, this public repository does not include:
 
 ## Roadmap — what's coming
 
-**v0.1.0 (next release)**:
-- ARM32 / x86_64 Frida signatures
-- Xposed `art_method` modification signatures, Substrate PLT trampolines, Magisk Zygisk residue
-- Full emulator catalog (Genymotion, LDPlayer, NoxPlayer, MuMu, BlueStacks)
-- Root indicators (Magisk hidden, Zygisk modules, KernelSU)
-- Honeypot primitives
-
 **v0.2.0**:
-- Harden and validate the existing ECDHE + AES-GCM BoxId channel end-to-end
-- Non-standard algorithm proxy module
-- Dual-path injection detector (patch-resistance hardening)
+- GitHub Packages Maven publishing for `io.leonasec:leona-sdk-android`
+- GitHub Release AAR + sha256 fallback remains available
+- Evidence-only client posture remains unchanged; backend policy owns decisions
 
 **v0.3.0+**:
 - Separate build-time tools: `leona-so-protector`, `leona-dex-packer`

@@ -20,7 +20,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.io.IOException
 import java.util.UUID
 
 internal class SecureChannel(
@@ -34,6 +33,9 @@ internal class SecureChannel(
             config = config,
             sdkVersion = BuildConstants.VERSION_NAME,
         )
+    }
+    private val publicHostedClient: PublicHostedReportingClient by lazy {
+        PublicHostedReportingClient(config)
     }
 
     suspend fun prepareTamperContext(): TamperContext {
@@ -54,9 +56,14 @@ internal class SecureChannel(
 
         config.apiKey ?: error("Leona.sense() requires apiKey when reportingEndpoint is set.")
 
-        return engine?.upload(payload, deviceContext) ?: throw IOException(
-            "Secure reporting for $endpoint requires the closed-source module :sdk-private-core on the runtime classpath.",
-        )
+        return engine?.upload(payload, deviceContext)
+            ?: publicHostedClient.upload(
+                endpoint = endpoint,
+                apiKey = config.apiKey,
+                sdkVersion = BuildConstants.VERSION_NAME,
+                payload = payload,
+                deviceContext = deviceContext,
+            )
     }
 
     fun debugSnapshot(): LeonaSecureTransportSnapshot = engine?.debugSnapshot()

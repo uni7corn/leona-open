@@ -76,6 +76,21 @@ internal class DeviceIdentityManager(
         }.getOrNull()
 
         val virtualInstanceAnchorHash = loadVirtualInstanceAnchorHash()
+        val fingerprintSource = if (virtualInstanceAnchorHash == null) {
+            DeviceFingerprintHasher.FINGERPRINT_SOURCE_BASE_V2
+        } else {
+            DeviceFingerprintHasher.FINGERPRINT_SOURCE_VIRTUAL_ANCHOR_V3
+        }
+        val identityAnchorSource = when {
+            virtualInstanceAnchorHash != null -> DeviceFingerprintHasher.ANCHOR_SOURCE_VIRTUAL_INSTANCE
+            !localAndroidId.isNullOrBlank() -> DeviceFingerprintHasher.ANCHOR_SOURCE_ANDROID_ID
+            else -> DeviceFingerprintHasher.ANCHOR_SOURCE_DEVICE_PROFILE
+        }
+        val canonicalDeviceIdSource = if (canonicalDeviceId == null) {
+            DeviceFingerprintHasher.CANONICAL_SOURCE_TEMPORARY_FINGERPRINT
+        } else {
+            DeviceFingerprintHasher.CANONICAL_SOURCE_SERVER_PERSISTED
+        }
         val identityAnchor = if (virtualInstanceAnchorHash == null) {
             buildIdentityAnchor(localAndroidId)
         } else {
@@ -110,6 +125,9 @@ internal class DeviceIdentityManager(
             canonicalDeviceId = canonicalDeviceId,
             resolvedDeviceId = resolvedDeviceId,
             fingerprintHash = fingerprintHash,
+            fingerprintSource = fingerprintSource,
+            identityAnchorSource = identityAnchorSource,
+            canonicalDeviceIdSource = canonicalDeviceIdSource,
             packageName = appContext.packageName,
             appVersionName = packageInfo?.versionName,
             appVersionCode = packageInfo.versionCodeCompat,
@@ -588,9 +606,53 @@ internal object DeviceFingerprintHasher {
     const val BASE_SEED_VERSION = 2
     const val VIRTUAL_ANCHOR_SEED_VERSION = 3
     const val CACHE_SCHEMA_VERSION = 3
+    const val FINGERPRINT_SOURCE_BASE_V2 = "base_device_v2"
+    const val FINGERPRINT_SOURCE_VIRTUAL_ANCHOR_V3 = "virtual_instance_anchor_v3"
+    const val ANCHOR_SOURCE_ANDROID_ID = "android_id"
+    const val ANCHOR_SOURCE_DEVICE_PROFILE = "device_profile"
+    const val ANCHOR_SOURCE_VIRTUAL_INSTANCE = "virtual_instance_anchor"
+    const val CANONICAL_SOURCE_SERVER_PERSISTED = "server_persisted"
+    const val CANONICAL_SOURCE_TEMPORARY_FINGERPRINT = "temporary_from_fingerprint"
 
     fun hashFingerprintSeed(values: Map<String, String>): String =
         sha256Hex(canonicalizeMap(values).toByteArray())
+
+    fun fixtureFingerprintHash(
+        appScopedAndroidId: String?,
+        buildFingerprint: String,
+        device: String,
+        product: String,
+        hardware: String,
+        brand: String,
+        model: String,
+        manufacturer: String,
+        sdkInt: Int,
+        abis: List<String>,
+        virtualInstanceAnchorHash: String? = null,
+    ): String {
+        val identityAnchor = virtualInstanceAnchorHash?.let { "virtual:$it" }
+            ?: appScopedAndroidId?.takeIf { it.isNotBlank() }?.let { "android:$it" }
+            ?: "device-profile"
+        val seed = linkedMapOf(
+            "version" to if (virtualInstanceAnchorHash == null) {
+                BASE_SEED_VERSION.toString()
+            } else {
+                VIRTUAL_ANCHOR_SEED_VERSION.toString()
+            },
+            "identityAnchor" to identityAnchor,
+            "buildFingerprint" to buildFingerprint,
+            "device" to device,
+            "product" to product,
+            "hardware" to hardware,
+            "brand" to brand,
+            "model" to model,
+            "manufacturer" to manufacturer,
+            "sdkInt" to sdkInt.toString(),
+            "abis" to abis.joinToString(","),
+        )
+        virtualInstanceAnchorHash?.let { seed["virtualInstanceAnchorHash"] = it }
+        return hashFingerprintSeed(seed)
+    }
 
     fun hashVirtualInstanceAnchors(values: Map<String, String>): String? {
         val sanitized = values

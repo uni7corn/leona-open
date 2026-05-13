@@ -5,7 +5,8 @@ bootloader-unlocked Android devices.
 
 The Leona Android SDK only collects and reports evidence. It must not make a
 local allow/deny decision for custom ROM, root, bootloader, or emulator posture.
-Final business decisions belong to the server verdict.
+Product actions must stay outside the client and use server-side
+evidence/policy.
 
 ## Scope
 
@@ -19,8 +20,8 @@ and debug evidence:
 - rooted custom ROMs with Magisk, KernelSU, APatch, or similar managers
 - clean OEM devices used as false-positive controls
 
-The matrix is about repeatable evidence, not policy. A custom ROM may be allowed
-for one tenant and blocked or challenged for another tenant.
+The matrix is about repeatable evidence, not policy. Custom ROM posture can map
+to different customer policies without changing the SDK evidence contract.
 
 ## Read-Only Posture Collection
 
@@ -65,7 +66,8 @@ LEONA_E2E_TOKEN=<token-built-into-the-installed-debug-apk> \
 
 This smoke starts the already-installed sample and reads structured `LeonaE2E`
 logcat output. It does not reinstall the APK or clear app data. Use it to attach
-BoxId, server verdict, and SDK diagnostic evidence to the posture report.
+a BoxId hint/hash, server-side evidence, and SDK diagnostic evidence to the
+posture report.
 
 A future `run-rom-matrix-smoke.sh` wrapper should stay simple: call
 `collect-device-posture.sh`, optionally call `run-installed-sample-logcat-smoke.sh`
@@ -86,7 +88,7 @@ verdict.
 | GSI / Treble | `gsi.running`, `treble.enabled` | `ro.gsid.image_running`, `ro.treble.enabled` |
 | ROM hints | `rom.lineage_like`, `rom.crdroid_like`, `rom.grapheneos_like`, `rom.aosp_like` | redacted build/product properties |
 | root manager package | `root_manager.package_present` | `pm list packages` matched against known manager package names |
-| SDK verdict path | BoxId, server tags, native finding ids | installed-sample logcat smoke or support bundle |
+| SDK verdict path | BoxId hint/hash, server-side evidence tags, native finding ids | installed-sample logcat smoke or support bundle |
 
 Root-manager package matches are summarized by family and package-name hashes,
 not by raw package names.
@@ -104,7 +106,7 @@ they contain complete serials, Android IDs, or fingerprints.
 
 | Sample | Device class | Android / API | ROM / build | Bootloader / VB state | GSI / Treble | Root manager summary | BoxId / verdict | Evidence highlights | Artifact path | Expected server policy | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Clean OEM physical | control |  |  |  |  |  |  |  |  | allow/challenge by tenant policy |  |
+| Clean OEM physical | control |  |  |  |  |  |  |  |  | `evidence_collected` / `business_defined` |  |
 | OEM unlocked BL | bootloader unlocked |  |  |  |  |  |  |  |  | tenant-specific |  |
 | LineageOS | custom ROM |  |  |  |  |  |  |  |  | tenant-specific |  |
 | crDroid | custom ROM |  |  |  |  |  |  |  |  | tenant-specific |  |

@@ -4,6 +4,63 @@ All notable changes to Leona Android SDK are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - Unreleased
+
+### Added
+- GitHub Packages Maven publishing for
+  `io.leonasec:leona-sdk-android:0.2.0`, with GitHub Release AAR + SHA-256
+  fallback kept for manual integration.
+- Public hosted reporting fallback for the open-source AAR when a Leona hosted
+  reporting endpoint and AppKey are configured. The SDK still collects and
+  uploads evidence only; customer backends own all final business decisions.
+- Backend integration examples for BoxId evidence lookup in Python, Java, Go,
+  C, C++, and Node.js, including dry-run signature checks where practical.
+- Diagnostic identity fields for `fingerprintSchemaVersion`,
+  `fingerprintSource`, `identityAnchorSource`, and
+  `canonicalDeviceIdSource`, so support bundles can explain device-id
+  stability behavior without exposing raw identifiers.
+- Public clean-OEM ledger gate for release checks across mainstream WeTest
+  device families without starting paid device sessions.
+
+### Changed
+- Tightened public hosted canonical parsing so the SDK only persists explicit
+  server canonical ids that match the `L...` format; temporary client `T...`
+  ids and raw device ids are not promoted to canonical ids.
+- Documented the fingerprint schema v2/v3 compatibility contract. The
+  customer-facing stable handle is the server-owned `canonicalDeviceId`; the
+  local `fingerprintHash` is a correlation handle and may change across schema
+  versions.
+- Clarified sample UI and public docs for test-posture facts:
+  `runtime.mapping.*` is a runtime mapping fact, while
+  `tamper.installer.missing`, ADB, developer options, and debuggable are
+  installation/debug posture evidence and are not standalone Root/Hook/Frida
+  conclusions.
+- Reworked WeTest/cloud-device collection docs to avoid private console
+  dependencies and to accept business-backend verdict JSON as the public-safe
+  evidence input.
+
+### Fixed
+- Clean HUAWEI OEM false-positive telemetry where a bare `generic` substring
+  could be rolled up into `rom.generic_aosp_like` /
+  `rom.custom_aosp_like`. Generic AOSP evidence now requires AOSP/GSI context.
+- Public hosted reporting error classification now distinguishes
+  `auth_failed`, `timestamp_skew`, `network_timeout`, and `server_5xx` for
+  diagnostics and retry handling.
+- Cloud-test direct trigger hardening: the sample receiver requires
+  `android.permission.DUMP`, keeping ADB/webshell test control while preventing
+  ordinary third-party app spoofing.
+- WeTest webshell launch artifacts are redacted before being copied into
+  reports.
+
+### Validation notes
+- MuMu direct-only identity stability passed initial / clear data / reinstall /
+  reboot with matching canonical hashes.
+- Android Studio Emulator independent-instance and clone-device dynamic
+  validation remains pending because the currently visible ADB endpoints were
+  confirmed to be the same MuMu environment.
+- GitHub Packages remote pull validation is pending the first `v0.2.0` tag
+  workflow run.
+
 ## [0.1.0] - 2026-05-09
 
 ### Added

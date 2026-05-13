@@ -348,7 +348,64 @@ Recommended output:
 
 ---
 
-## 7. Provenance and trust rules
+## 7. Fingerprint schema compatibility
+
+The SDK exposes fingerprint diagnostics so identity changes can be explained
+without exposing raw identifiers:
+
+- `fingerprintSchemaVersion`
+- `fingerprintSource`
+- `identityAnchorSource`
+- `canonicalDeviceIdSource`
+
+Current schema values:
+
+| Field | Value | Meaning |
+| --- | --- | --- |
+| `fingerprintSchemaVersion` | `3` | Cache/schema version for the local fingerprint snapshot. Cached snapshots with older versions are regenerated before reuse. |
+| `fingerprintSource` | `base_device_v2` | Real-device/default seed. Uses the local identity anchor plus stable build/device profile fields. |
+| `fingerprintSource` | `virtual_instance_anchor_v3` | Emulator/virtual-device seed. Adds a hashed virtual-instance anchor so cloned virtual machines can diverge while the same instance stays stable across app data resets. |
+| `identityAnchorSource` | `android_id` | Android ID was usable as the local real-device identity anchor. |
+| `identityAnchorSource` | `device_profile` | Android ID was unavailable, so the SDK fell back to stable device profile fields. Lower confidence. |
+| `identityAnchorSource` | `virtual_instance_anchor` | A virtual/emulator instance anchor hash was available and used. |
+| `canonicalDeviceIdSource` | `temporary_from_fingerprint` | The SDK has no server-persisted canonical yet; `resolvedDeviceId` is a temporary `T...` value derived from the fingerprint hash. |
+| `canonicalDeviceIdSource` | `server_persisted` | The SDK has accepted and persisted a server-issued `L...` canonical id from the reporting path. |
+
+Compatibility rules:
+
+1. `fingerprintHash` is a correlation handle, not a customer-facing stable id.
+   Business integrations should store and pass `boxId`, then have the backend
+   query Leona evidence and cache the returned `canonicalDeviceId` if needed.
+2. `canonicalDeviceId` is server-owned. Client-side `T...` ids and client
+   canonical claims are temporary or telemetry only.
+3. A schema version bump may change future `fingerprintHash` values. Server
+   ingestion should treat the new hash as the current correlation handle while
+   retaining old hash observations as historical aliases/evidence for the same
+   device when existing server-side binding or tenant policy supports it.
+4. Cached SDK snapshots are reused only when their schema version matches the
+   current SDK cache schema and their persisted canonical id has not changed.
+   Otherwise the SDK regenerates the snapshot.
+5. Virtual/emulator devices should use `virtual_instance_anchor_v3` when a
+   usable anchor exists. Placeholder anchors such as `unknown`,
+   `02:00:00:00:00:00`, or `<redacted>` must be ignored.
+6. If no usable virtual anchor exists, the SDK may fall back to
+   `base_device_v2`; that should be treated as lower confidence for clone
+   separation and recorded in test reports.
+
+Migration guidance for release notes:
+
+- Do not promise that `fingerprintHash` is immutable across SDK versions.
+- Do promise that `canonicalDeviceId` is the stable server-facing id when
+  server evidence has converged.
+- When a release changes fingerprint schema, include the old/new schema number,
+  source labels, and expected impact in the changelog.
+- For emulator/virtual clone regressions, capture
+  `fingerprintSchemaVersion`, `fingerprintSource`, `identityAnchorSource`, and
+  canonical hint/hash in the support bundle before comparing devices.
+
+---
+
+## 8. Provenance and trust rules
 
 Server ingestion should preserve provenance for every evidence or risk-related
 item:
@@ -366,7 +423,7 @@ risk decisions by themselves.
 
 ---
 
-## 8. Important client-side rule
+## 9. Important client-side rule
 
 The debug API:
 

@@ -1,7 +1,18 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    id("maven-publish")
 }
+
+val releaseTagVersion = providers.environmentVariable("GITHUB_REF_NAME")
+    .map { refName -> refName.removePrefix("v") }
+    .orNull
+    ?.takeIf { version -> Regex("""\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?""").matches(version) }
+val sdkGroupId = providers.gradleProperty("GROUP").get()
+val sdkVersionName = releaseTagVersion ?: providers.gradleProperty("VERSION_NAME").get()
+
+group = sdkGroupId
+version = sdkVersionName
 
 android {
     namespace = "io.leonasec.leona"
@@ -90,6 +101,68 @@ dependencies {
 
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.androidx.test.espresso)
+}
+
+publishing {
+    publications {
+        register<MavenPublication>("release") {
+            groupId = sdkGroupId
+            artifactId = "leona-sdk-android"
+            version = sdkVersionName
+
+            pom {
+                name.set("Leona Android SDK")
+                description.set("Public Android SDK for device environment evidence collection.")
+                url.set("https://github.com/zedbully/leona-open")
+                licenses {
+                    license {
+                        name.set("Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+                developers {
+                    developer {
+                        id.set("leona")
+                        name.set("Leona Contributors")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:https://github.com/zedbully/leona-open.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/zedbully/leona-open.git")
+                    url.set("https://github.com/zedbully/leona-open")
+                }
+            }
+
+            afterEvaluate {
+                from(components["release"])
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri(
+                providers.gradleProperty("LEONA_GITHUB_PACKAGES_URL")
+                    .orElse(
+                        providers.environmentVariable("GITHUB_REPOSITORY")
+                            .map { repository -> "https://maven.pkg.github.com/$repository" }
+                            .orElse("https://maven.pkg.github.com/zedbully/leona-open"),
+                    )
+                    .get(),
+            )
+            credentials {
+                username = providers.gradleProperty("gpr.user")
+                    .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+                    .orElse("")
+                    .get()
+                password = providers.gradleProperty("gpr.key")
+                    .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+                    .orElse("")
+                    .get()
+            }
+        }
+    }
 }
 
 android {

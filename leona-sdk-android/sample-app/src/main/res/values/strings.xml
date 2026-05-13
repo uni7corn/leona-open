@@ -69,8 +69,8 @@
     <string name="honeypot_help">当业务后端按自身规则识别会话异常时，可返回看似真实但无价值的数据替代真实值。SDK 只提供材料，必须结合后端信号使用。</string>
     <string name="generate_honeypot">生成虚假用户</string>
     <string name="honeypot_result_fmt">id=%1$s\nemail=%2$s\nname=%3$s</string>
-    <string name="diagnostic_fmt">设备ID=%1$s\n安装ID=%2$s\ncanonical=%3$s\n指纹哈希=%4$s\n本地证据=%5$s\nNative事实=%6$s\nNative最高等级=%7$s\nNative明细=%8$s\n服务端采集状态=%9$s\n业务处理=%10$s\n服务端证据等级=%11$s\n服务端证据分=%12$s\n服务端证据明细=%13$s\nlastBoxId=%14$s</string>
+    <string name="diagnostic_fmt">设备ID=%1$s\n安装ID=%2$s\ncanonical=%3$s\n指纹哈希=%4$s\n指纹Schema=%5$s\n指纹来源=%6$s\n锚点来源=%7$s\ncanonical来源=%8$s\n本地证据=%9$s\nNative事实=%10$s\nNative最高等级=%11$s\nNative明细=%12$s\n服务端采集状态=%13$s\n业务处理=%14$s\n服务端证据等级=%15$s\n服务端证据分=%16$s\n服务端证据明细=%17$s\nlastBoxId=%18$s</string>
     <string name="transport_fmt">engineAvailable=%1$s\nbindingPresent=%2$s\nbindingHardwareBacked=%3$s\nbindingPubKeySha256=%4$s\nsessionIdHint=%5$s\nsessionExpiresAt=%6$s\nsessionCanonical=%7$s\nsessionBindingStatus=%8$s\nserverAttestationProvider=%9$s\nserverAttestationStatus=%10$s\nserverAttestationCode=%11$s\nserverAttestationRetryable=%12$s\nattestationFormat=%13$s\nattestationTokenSha256=%14$s\nlastHandshakeError=%15$s\nlastHandshakeCode=%16$s\nlastHandshakeProvider=%17$s\nlastHandshakeRetryable=%18$s</string>
-    <string name="support_bundle_fmt">canonical=%1$s\n禁用采集项=%2$s\n采集窗口毫秒=%3$s\n云配置获取时间=%4$s\n云配置原文存在=%5$s\n传输canonical=%6$s\n采集结果canonical=%7$s\n传输绑定状态=%8$s\n服务端认证Provider=%9$s\n服务端认证状态=%10$s\n服务端认证Code=%11$s</string>
+    <string name="support_bundle_fmt">canonical=%1$s\n指纹Schema=%2$s\n指纹来源=%3$s\n锚点来源=%4$s\ncanonical来源=%5$s\n禁用采集项=%6$s\n采集窗口毫秒=%7$s\n云配置获取时间=%8$s\n云配置原文存在=%9$s\n传输canonical=%10$s\n采集结果canonical=%11$s\n传输绑定状态=%12$s\n服务端认证Provider=%13$s\n服务端认证状态=%14$s\n服务端认证Code=%15$s</string>
     <string name="consistency_fmt">设备=%1$s\n传输=%2$s\n采集结果=%3$s\n支持包=%4$s\n是否一致=%5$s</string>
 </resources>

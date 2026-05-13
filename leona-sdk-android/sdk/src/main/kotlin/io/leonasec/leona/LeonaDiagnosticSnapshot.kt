@@ -21,6 +21,10 @@ data class LeonaDiagnosticSnapshot(
     val installId: String,
     val canonicalDeviceId: String?,
     val fingerprintHash: String,
+    val fingerprintSchemaVersion: Int = 0,
+    val fingerprintSource: String = "unknown",
+    val identityAnchorSource: String = "unknown",
+    val canonicalDeviceIdSource: String = "unknown",
     val packageName: String,
     val appVersionName: String?,
     val appVersionCode: Long,
@@ -73,6 +77,10 @@ data class LeonaDiagnosticSnapshot(
         .put("installId", installId)
         .put("canonicalDeviceId", canonicalDeviceId)
         .put("fingerprintHash", fingerprintHash)
+        .put("fingerprintSchemaVersion", fingerprintSchemaVersion)
+        .put("fingerprintSource", fingerprintSource)
+        .put("identityAnchorSource", identityAnchorSource)
+        .put("canonicalDeviceIdSource", canonicalDeviceIdSource)
         .put("packageName", packageName)
         .put("appVersionName", appVersionName)
         .put("appVersionCode", appVersionCode)
@@ -102,6 +110,10 @@ data class LeonaDiagnosticSnapshot(
         .put("installId", LeonaJsonRedaction.hint(installId))
         .put("canonicalDeviceId", LeonaJsonRedaction.hint(canonicalDeviceId))
         .put("fingerprintHash", LeonaJsonRedaction.hint(fingerprintHash))
+        .put("fingerprintSchemaVersion", fingerprintSchemaVersion)
+        .put("fingerprintSource", fingerprintSource)
+        .put("identityAnchorSource", identityAnchorSource)
+        .put("canonicalDeviceIdSource", canonicalDeviceIdSource)
         .put("packageName", packageName)
         .put("appVersionName", appVersionName)
         .put("appVersionCode", appVersionCode)

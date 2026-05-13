@@ -454,15 +454,15 @@ class MainActivity : AppCompatActivity() {
             value == "risk.high" -> "【服务端汇总等级】high：服务端按检测事件分值聚合出的高强度等级；具体原因看同列表行为标签"
             value == "risk.critical" -> "【服务端汇总等级】critical：服务端按检测事件分值或即时严重规则聚合出的严重等级；具体原因看 Root/Hook/调试/ADB/安装来源等明细"
             value == "tamper.installer.missing" ->
-                "【安装来源】安装来源缺失：上报 installerPackage 为空或未知"
+                "【安装来源/测试姿态】installerPackage 缺失：Android 未提供可信安装来源，常见于 ADB、WeTest 或手动侧载；本项本身不等于 Root/Hook/篡改"
             value == "install.sideload_or_unknown" ->
-                "【安装来源】侧载或未知安装来源：installerPackage 缺失或非标准商店来源"
+                "【安装来源/测试姿态】侧载或未知来源：installerPackage 缺失或非标准商店来源；用于区分实验室安装和正式分发"
             value == "debug.adb_enabled" || value.contains("developer.adb_enabled") ->
-                "【调试/ADB】ADB 调试已开启：设备全局 adb_enabled 或 developer.adb_enabled 为开启"
+                "【调试/ADB】ADB 调试已开启：设备全局 adb_enabled 或 developer.adb_enabled 为开启；云真机/实验室远程调试常见，业务方应按自身策略处理"
             value == "debug.app_debuggable" || value.contains("app.debuggable") ->
-                "【调试/Debuggable】应用可调试：APK/Application debuggable 标志开启"
+                "【调试/Debuggable】应用可调试：APK/Application debuggable 标志开启；debug sample 预期会出现，release 包不应出现"
             value == "debug.developer_options_enabled" || value.contains("developer.options_enabled") ->
-                "【调试/开发者选项】开发者选项已开启：development_settings_enabled 为开启"
+                "【调试/开发者选项】开发者选项已开启：development_settings_enabled 为开启；表示设备处于开发/测试姿态"
             value == "debug.debugger_attached" || value.contains("debugger") || value.contains("ptrace") ->
                 "【调试/Debugger】调试器或 ptrace 痕迹：运行时存在 debugger/ptrace 相关证据"
             value == "private.policy.escalated" ->
@@ -509,12 +509,12 @@ class MainActivity : AppCompatActivity() {
             value == "tamper.detected" || value.contains("tamper") ->
                 "【完整性/篡改】应用完整性或运行时篡改证据"
             value.startsWith("runtime.mapping.deleted_executable") ->
-                "【运行时映射】存在已删除可执行映射：deleted executable mapping"
+                "【运行时映射/事实】存在已删除可执行映射：/proc/self/maps 中有 deleted executable mapping；可能来自系统/JIT/测试工具，单独出现不等于 Hook"
             value.startsWith("runtime.mapping.memfd_executable") ->
-                "【运行时映射】存在内存文件可执行映射：memfd executable mapping"
+                "【运行时映射/事实】存在内存文件可执行映射：/proc/self/maps 中有 memfd executable mapping；需结合 Frida/注入等具体标签判断"
             value.startsWith("runtime.mapping.anonymous_executable") ->
-                "【运行时映射】存在匿名可执行映射：anonymous executable mapping"
-            value.startsWith("runtime.mapping.") -> "【运行时映射】运行时内存映射事实"
+                "【运行时映射/事实】存在匿名可执行映射：/proc/self/maps 中有 anonymous executable mapping；属于采集事实，不直接代表业务风险"
+            value.startsWith("runtime.mapping.") -> "【运行时映射/事实】运行时内存映射采集事实：用于辅助解释运行环境，不单独作为 Root/Hook 结论"
             value.startsWith("build.userdebug_or_eng") -> "【系统构建】系统构建类型为 userdebug/eng"
             value.startsWith("build.dev_keys") -> "【系统构建】系统使用开发签名 dev-keys"
             value.startsWith("build.tags.") -> "【系统构建】系统构建标签证据"
@@ -663,6 +663,10 @@ class MainActivity : AppCompatActivity() {
             snapshot.installId,
             snapshot.canonicalDeviceId ?: "-",
             snapshot.fingerprintHash,
+            snapshot.fingerprintSchemaVersion.toString(),
+            snapshot.fingerprintSource,
+            snapshot.identityAnchorSource,
+            snapshot.canonicalDeviceIdSource,
             formatTranslatedEvidence(snapshot.evidenceSignals),
             formatTranslatedEvidence(snapshot.nativeFactTags),
             translateNativeSeverity(snapshot.nativeHighestSeverity),
@@ -702,6 +706,10 @@ class MainActivity : AppCompatActivity() {
         getString(
             R.string.support_bundle_fmt,
             bundle.diagnosticSnapshot.canonicalDeviceId ?: "-",
+            bundle.diagnosticSnapshot.fingerprintSchemaVersion.toString(),
+            bundle.diagnosticSnapshot.fingerprintSource,
+            bundle.diagnosticSnapshot.identityAnchorSource,
+            bundle.diagnosticSnapshot.canonicalDeviceIdSource,
             bundle.effectiveDisabledSignals.toSortedSet().joinToString(",").ifBlank { "-" },
             bundle.effectiveDisableCollectionWindowMs.toString(),
             bundle.cloudConfigFetchedAtMillis?.toString() ?: "-",

@@ -16,8 +16,8 @@ class LeonaServerVerdictTest {
         val verdict = LeonaServerVerdict(
             boxId = "box-1",
             canonicalDeviceId = "Lcanon",
-            decision = "allow",
-            action = "allow",
+            decision = "evidence_collected",
+            action = "business_defined",
             riskLevel = "LOW",
             riskScore = 8,
             riskTags = setOf("trusted.device", "known.install"),

@@ -18,6 +18,10 @@ class LeonaDiagnosticSnapshotTest {
             installId = "install-1",
             canonicalDeviceId = "Lcanon",
             fingerprintHash = "hash-1",
+            fingerprintSchemaVersion = 3,
+            fingerprintSource = "virtual_instance_anchor_v3",
+            identityAnchorSource = "virtual_instance_anchor",
+            canonicalDeviceIdSource = "server_persisted",
             packageName = "io.leonasec.demo",
             appVersionName = "1.0.0",
             appVersionCode = 1L,
@@ -39,8 +43,8 @@ class LeonaDiagnosticSnapshotTest {
             nativeFindingIds = listOf("injection.frida.known_library"),
             nativeHighestSeverity = 3,
             nativeEventCount = 1,
-            serverDecision = "allow",
-            serverAction = "allow",
+            serverDecision = "evidence_collected",
+            serverAction = "business_defined",
             serverRiskLevel = "LOW",
             serverRiskScore = 12,
             serverRiskTags = setOf("trusted.device"),
@@ -52,6 +56,10 @@ class LeonaDiagnosticSnapshotTest {
 
         assertEquals("Tdevice", obj.getString("deviceId"))
         assertEquals("Lcanon", obj.getString("canonicalDeviceId"))
+        assertEquals(3, obj.getInt("fingerprintSchemaVersion"))
+        assertEquals("virtual_instance_anchor_v3", obj.getString("fingerprintSource"))
+        assertEquals("virtual_instance_anchor", obj.getString("identityAnchorSource"))
+        assertEquals("server_persisted", obj.getString("canonicalDeviceIdSource"))
         assertEquals(
             "root.su_or_busybox_path_present",
             obj.getJSONArray("evidenceSignals").getString(0),
@@ -75,6 +83,10 @@ class LeonaDiagnosticSnapshotTest {
             installId = "install-1234567890",
             canonicalDeviceId = "Lcanonical-1234567890",
             fingerprintHash = "fingerprint-1234567890",
+            fingerprintSchemaVersion = 2,
+            fingerprintSource = "base_device_v2",
+            identityAnchorSource = "android_id",
+            canonicalDeviceIdSource = "temporary_from_fingerprint",
             packageName = "io.leonasec.demo",
             appVersionName = "1.0.0",
             appVersionCode = 1L,
@@ -95,8 +107,8 @@ class LeonaDiagnosticSnapshotTest {
             nativeFindingIds = listOf("injection.frida.known_library"),
             nativeHighestSeverity = 3,
             nativeEventCount = 1,
-            serverDecision = "allow",
-            serverAction = "allow",
+            serverDecision = "evidence_collected",
+            serverAction = "business_defined",
             serverRiskLevel = "LOW",
             serverRiskScore = 12,
             serverRiskTags = setOf("trusted.device"),
@@ -106,6 +118,10 @@ class LeonaDiagnosticSnapshotTest {
         val obj = JSONObject(snapshot.toJson())
 
         assertEquals("Tdev...7890", obj.getString("deviceId"))
+        assertEquals(2, obj.getInt("fingerprintSchemaVersion"))
+        assertEquals("base_device_v2", obj.getString("fingerprintSource"))
+        assertEquals("android_id", obj.getString("identityAnchorSource"))
+        assertEquals("temporary_from_fingerprint", obj.getString("canonicalDeviceIdSource"))
         assertEquals(
             "root.su_or_busybox_path_present",
             obj.getJSONArray("evidenceSignals").getString(0),

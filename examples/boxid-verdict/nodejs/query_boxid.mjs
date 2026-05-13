@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { pathToFileURL } from "node:url";
 
 const DEFAULT_ENDPOINT = "https://leona.xiyanshan.com/v1/verdict";
 
@@ -10,23 +11,18 @@ function requireEnv(name) {
   return value.trim();
 }
 
-async function main() {
-  const secret = requireEnv("LEONA_SECRET_KEY");
-  const boxId = requireEnv("BOX_ID");
-  const endpoint = process.env.LEONA_ENDPOINT || DEFAULT_ENDPOINT;
-
+export function buildSignedRequest({ secret, boxId, endpoint, timestamp, nonce }) {
   const body = JSON.stringify({ boxId });
-  const timestamp = Date.now().toString();
-  const nonce = crypto.randomBytes(16).toString("base64url");
   const bodySha256 = crypto.createHash("sha256").update(body).digest("hex");
   const signingText = `${timestamp}\n${nonce}\n${bodySha256}`;
   const signature = crypto
     .createHmac("sha256", secret)
     .update(signingText)
     .digest("base64url");
-
-  const response = await fetch(endpoint, {
-    method: "POST",
+  return {
+    endpoint,
+    body,
+    bodySha256,
     headers: {
       "Authorization": `Bearer ${secret}`,
       "Content-Type": "application/json",
@@ -34,7 +30,26 @@ async function main() {
       "X-Leona-Nonce": nonce,
       "X-Leona-Signature": signature,
     },
-    body,
+  };
+}
+
+async function main() {
+  const secret = requireEnv("LEONA_SECRET_KEY");
+  const boxId = requireEnv("BOX_ID");
+  const endpoint = process.env.LEONA_ENDPOINT || DEFAULT_ENDPOINT;
+  const timestamp = process.env.LEONA_TIMESTAMP || Date.now().toString();
+  const nonce = process.env.LEONA_NONCE || crypto.randomBytes(16).toString("base64url");
+  const signed = buildSignedRequest({ secret, boxId, endpoint, timestamp, nonce });
+
+  if (process.env.LEONA_DRY_RUN === "1") {
+    console.log(JSON.stringify(signed, null, 2));
+    return;
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: signed.headers,
+    body: signed.body,
   });
 
   const text = await response.text();
@@ -44,7 +59,9 @@ async function main() {
   console.log(text);
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
+}

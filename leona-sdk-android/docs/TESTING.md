@@ -48,6 +48,18 @@ For cloud-device validation on WeTest, use `docs/wetest-matrix-runbook.md`.
 Release/non-debug sample APKs are suitable for package posture checks, while
 debug/staging APKs are reserved for controlled logcat E2E collection.
 
+Before a release candidate spends more time on WeTest, run the public static
+clean-OEM ledger gate from `leona-sdk-android`:
+
+```bash
+./scripts/verify-clean-oem-ledger.sh
+```
+
+This check only reads `docs/wetest-matrix-runbook.md`. It confirms the tested
+ledger has at least six passing mainstream clean-OEM brand families, pass rows
+use redacted BoxId hints or hashes, and pass-row notes do not contain the
+release-gate false-positive family terms.
+
 To validate an already-installed debug sample without reinstalling it or reading
 the UI, run the installed-sample logcat smoke test:
 
@@ -77,6 +89,56 @@ The expected clean-device result is not a client-side allow/deny decision. A
 clean device should upload normally and leave final policy evaluation to the
 server.
 
+## Hosted API Diagnostics
+
+The public hosted upload path (`POST /v1/sense/public`) uses `X-Leona-App-Key`
+tenant authentication and does not require a client-side HMAC timestamp. A
+missing or invalid AppKey should return a structured `401` response with
+`LEONA_AUTH_MISSING` or `LEONA_AUTH_INVALID`; it must not surface as a generic
+HTTP 500 to the SDK.
+
+The signed private upload path (`POST /v1/sense`) still requires timestamp,
+nonce, signature, and session headers. Timestamp parsing or clock-window
+failures should return `401 LEONA_TIMESTAMP_SKEW`, while missing signed headers
+should return `401 LEONA_AUTH_MISSING`. SDK diagnostics classify these cases as
+`timestamp_skew` or `auth_failed`; generic 5xx responses are classified as
+`server_5xx` and should not trigger timestamp-skew retry behavior unless the
+server explicitly returns a timestamp-skew marker.
+
+Clock handling has two separate contracts:
+
+- Public hosted reporting (`/v1/sense/public`) does not ask the APK to sign the
+  upload with the device wall clock. This path is designed for the public AAR
+  and should be validated through AppKey authentication, network timeout, and
+  server 5xx diagnostics. `serverTimeMillis` and `serverClockOffsetMillis` are
+  not public hosted response fields in `v0.2.0`.
+- Private signed reporting (`/v1/sense`) can receive `serverTimeMillis` during
+  handshake. The SDK derives `serverClockOffsetMillis` as
+  `serverTimeMillis - currentDeviceTimeMillis`, persists it with the session,
+  and signs later uploads with the corrected timestamp. If the server returns a
+  clear timestamp-skew error, the SDK may discard the old session, refresh the
+  handshake, and retry once.
+
+`timestamp_skew` is a transport/authentication diagnostic. It is not evidence
+that the device is rooted, hooked, emulated, or otherwise risky. Record it in
+logs and retry/fallback handling, but do not turn it into a business verdict or
+device-risk tag.
+
+For the Android 10 realme-style clock-offset regression, run the direct
+cloudTest wrapper instead of tapping the UI:
+
+```bash
+LEONA_APK=/path/to/sample-app-cloudTest.apk \
+ANDROID_SERIAL=<device-or-wetest-adb-serial> \
+LEONA_CLOUD_TEST_TOKEN=<token-built-into-cloudTest-apk> \
+./scripts/run-clock-skew-regression.sh
+```
+
+The script records host/device wall-clock offset, runs `sense()` through the
+cloudTest receiver, redacts BoxIds in shareable artifacts, and classifies
+failures as `timestamp_skew`, `network_timeout`, `auth_failed`, `server_5xx`, or
+`no_boxid`.
+
 ## Clean Physical Device Notes
 
 The public sample path normally installs `sample-app-debug.apk` over ADB. On a
@@ -93,9 +155,16 @@ device is rooted or hooked:
 - `install.sideload_or_unknown` means Android did not report a trusted store
   installer package, or the app was installed via ADB/manual sideload. This is
   expected for local field testing.
+- `tamper.installer.missing` means Android reported no usable installer package
+  name. In WeTest, ADB, and manual sideload runs this is installation-route
+  evidence, not proof that the APK was modified.
 - `debug.adb_enabled` / `debug.developer_options_enabled` mean the device is in
   a developer-test posture. They are high-value evidence for the server, but
   the SDK still only reports evidence and returns a BoxId.
+- `runtime.mapping.*` entries are `/proc/self/maps` facts such as deleted,
+  anonymous, or memfd executable mappings. They are useful context for runtime
+  analysis, but they only become Hook/Frida-style evidence when accompanied by
+  specific hook, injection, trampoline, package, or library findings.
 
 For a stricter clean-device baseline, install a non-debug/release build through
 the same route your production app will use, then run `sense()` and query the

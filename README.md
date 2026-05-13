@@ -16,7 +16,7 @@ This GitHub repository intentionally keeps only the Android public integration S
 - Not open source: Leona hosted API/backend implementation, private detector catalog, private native runtime, risk weights, tenant policy, internal ops, production deployment, secrets, and closed-source tooling.
 - Directory names are kept for orientation, but closed-source directories contain only README placeholders explaining why the code is absent.
 
-This split is deliberate. Publishing backend decision logic or high-value detector rules would weaken the security model by giving attackers the implementation they need to bypass the system.
+This split is deliberate. Publishing backend evidence-processing internals or high-value detector rules would weaken the security model by giving attackers the implementation they need to bypass the system.
 
 ## Usage Model
 
@@ -68,6 +68,39 @@ val boxId = Leona.sense()
 
 Send `boxId` to your business backend. Your backend queries the Leona verdict API and applies your product policy.
 
+## Android SDK Dependency
+
+For `v0.2.0`, the first automated Maven channel is GitHub Packages:
+
+```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://maven.pkg.github.com/zedbully/leona-open") {
+            credentials {
+                username = providers.gradleProperty("gpr.user")
+                    .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+                    .orNull
+                password = providers.gradleProperty("gpr.key")
+                    .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+                    .orNull
+            }
+        }
+    }
+}
+```
+
+```kotlin
+dependencies {
+    implementation("io.leonasec:leona-sdk-android:0.2.0")
+}
+```
+
+GitHub Release AAR + `.sha256` files remain the fallback path for teams that do
+not want to configure GitHub Packages credentials in Gradle.
+
 ## Backend: Exchange BoxId for Device Evidence
 
 The Android app must never call the evidence query API directly. The app sends
@@ -98,7 +131,7 @@ X-Leona-Timestamp: <unix-time-ms>
 X-Leona-Nonce: <random-nonce>
 X-Leona-Signature: <base64url-hmac-sha256>
 
-{"boxId":"01KR0000000000000000000000"}
+{"boxId":"<BOX_ID_FROM_APP>"}
 ```
 
 Signature input:
@@ -107,6 +140,12 @@ Signature input:
 signingText = timestamp + "\n" + nonce + "\n" + sha256(requestBody)
 signature = base64url_no_padding(HMAC-SHA256(secretKey, signingText))
 ```
+
+`X-Leona-Timestamp` is a backend request-signing field for `/v1/verdict`; it is
+not a device environment signal. If a query fails with a timestamp-skew style
+error, refresh the backend timestamp and retry according to your own retry
+policy. Do not treat clock-skew/authentication errors as Root, Hook, emulator,
+or tamper evidence.
 
 Minimal Node.js example:
 
@@ -149,6 +188,22 @@ Ready-to-run backend examples are available in
 [`examples/boxid-verdict`](examples/boxid-verdict) for Python, Java, Go, C,
 C++, and Node.js.
 
+Typical backend flow with cache:
+
+```text
+1. Android app calls Leona.sense() during login/payment/high-value action.
+2. App sends the opaque BoxId in the customer API request.
+3. Customer backend checks whether this business record already has a cached
+   Leona evidence report.
+4. On cache miss, backend signs and calls POST /v1/verdict with SecretKey.
+5. Backend persists the first successful report with its own record id,
+   response status, query time, deviceFingerprint, canonicalDeviceId, events,
+   provenance, and policyExplanation.
+6. Backend applies customer-owned business policy from the cached evidence.
+7. Later retries or audits read the cached report because the BoxId has already
+   been consumed by the successful /v1/verdict call.
+```
+
 Important response fields:
 
 - `deviceFingerprint`: Leona device fingerprint identifier.
@@ -165,6 +220,18 @@ inside your own business order/login/risk record if you need to read it again.
 
 Leona returns evidence. Your backend decides whether to allow, challenge, deny,
 honeypot, or take any other product action.
+
+## Customer Integration Checklist
+
+- Get a Leona AppKey for the Android SDK and a separate backend-only SecretKey.
+- Configure the APK with AppKey and hosted endpoint only; never package SecretKey.
+- Call `Leona.sense()` at the protected business moment and send the opaque BoxId to your backend.
+- Include the BoxId in a backend-owned login/order/payment/risk request field.
+- Sign backend `POST /v1/verdict` calls with timestamp, nonce, body hash, and HMAC signature.
+- Cache the first successful verdict response with your own business record because BoxId is single-use.
+- Handle `410 LEONA_BOX_ALREADY_USED` through your cache/idempotency path.
+- Log auth/signature/time/network/server failures separately so integration issues are diagnosable.
+- Keep final allow/challenge/deny/manual-review actions in your own backend policy.
 
 ## Build Public SDK
 

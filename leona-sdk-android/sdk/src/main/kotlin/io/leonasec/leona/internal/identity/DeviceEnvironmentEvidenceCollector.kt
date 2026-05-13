@@ -110,7 +110,13 @@ internal object DeviceEnvironmentEvidenceCollector {
             profile.systemProductDevice.orEmpty(),
         ).joinToString(" ").lowercase(Locale.ROOT)
         knownRomSignals.forEach { (needle, evidenceId) ->
-            if (haystack.contains(needle)) evidenceIds += evidenceId
+            if (containsTokenLike(haystack, needle)) evidenceIds += evidenceId
+        }
+        if (hasAospSignal(profile)) {
+            evidenceIds += "rom.aosp_like"
+        }
+        if (hasGenericAospSignal(profile)) {
+            evidenceIds += "rom.generic_aosp_like"
         }
         if (evidenceIds.any { it.startsWith("build.tags.") || it == "build.type.userdebug_or_eng" } ||
             evidenceIds.any { it.startsWith("rom.") || it.startsWith("gsi.") }
@@ -166,6 +172,37 @@ internal object DeviceEnvironmentEvidenceCollector {
         return digest.joinToString("") { "%02x".format(it) }
     }
 
+    private fun hasAospSignal(profile: BuildProfile): Boolean =
+        profile.romFields().any { value ->
+            containsTokenLike(value, "aosp") ||
+                value.contains("aosp_", ignoreCase = true) ||
+                value.contains("aosp-", ignoreCase = true) ||
+                value.contains("/aosp", ignoreCase = true)
+        }
+
+    private fun hasGenericAospSignal(profile: BuildProfile): Boolean {
+        val hasGenericToken = profile.romFields().any { containsTokenLike(it, "generic") || it.startsWith("generic/", ignoreCase = true) }
+        return hasGenericToken && (hasAospSignal(profile) || isTruthy(profile.gsiImageRunning))
+    }
+
+    private fun BuildProfile.romFields(): List<String> = listOf(
+        fingerprint,
+        display,
+        incremental,
+        product,
+        device,
+        brand,
+        manufacturer,
+        systemProductName.orEmpty(),
+        systemProductBrand.orEmpty(),
+        systemProductDevice.orEmpty(),
+    ).map { it.lowercase(Locale.ROOT) }
+
+    private fun containsTokenLike(value: String, token: String): Boolean {
+        val pattern = Regex("(^|[^a-z0-9])${Regex.escape(token.lowercase(Locale.ROOT))}([^a-z0-9]|$)")
+        return pattern.containsMatchIn(value.lowercase(Locale.ROOT))
+    }
+
     private fun systemProperty(key: String): String? = runCatching {
         val clazz = Class.forName("android.os.SystemProperties")
         clazz.getMethod("get", String::class.java).invoke(null, key) as? String
@@ -182,7 +219,5 @@ internal object DeviceEnvironmentEvidenceCollector {
         "evolution" to "rom.evolutionx_like",
         "omni" to "rom.omnirom_like",
         "paranoid" to "rom.paranoidandroid_like",
-        "aosp" to "rom.aosp_like",
-        "generic" to "rom.generic_aosp_like",
     )
 }
