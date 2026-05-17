@@ -11,6 +11,8 @@ import java.net.SocketTimeoutException
 enum class SecureReportingErrorCode(val wireValue: String, val retryableByDefault: Boolean) {
     TIMESTAMP_SKEW("timestamp_skew", true),
     NETWORK_TIMEOUT("network_timeout", true),
+    TLS_TRUST_ANCHOR("tls_trust_anchor", false),
+    TLS_HANDSHAKE("tls_handshake", false),
     AUTH_FAILED("auth_failed", false),
     SERVER_5XX("server_5xx", true),
     UNKNOWN("unknown", false),
@@ -61,9 +63,31 @@ object SecureReportingErrorClassifier {
         val code = when (error) {
             is SocketTimeoutException -> SecureReportingErrorCode.NETWORK_TIMEOUT
             is InterruptedIOException -> SecureReportingErrorCode.NETWORK_TIMEOUT
-            else -> SecureReportingErrorCode.UNKNOWN
+            else -> classifyTlsFailure(error)
+                ?: SecureReportingErrorCode.UNKNOWN
         }
         return SecureReportingErrorClassification(code = code)
+    }
+
+    private fun classifyTlsFailure(error: Throwable): SecureReportingErrorCode? {
+        var current: Throwable? = error
+        var handshakeSeen = false
+        while (current != null) {
+            val type = current.javaClass.name
+            val message = current.message.orEmpty()
+            if (
+                "Trust anchor for certification path not found" in message ||
+                "CertPathValidatorException" in type ||
+                "SunCertPathBuilderException" in type
+            ) {
+                return SecureReportingErrorCode.TLS_TRUST_ANCHOR
+            }
+            if (type == "javax.net.ssl.SSLHandshakeException") {
+                handshakeSeen = true
+            }
+            current = current.cause
+        }
+        return if (handshakeSeen) SecureReportingErrorCode.TLS_HANDSHAKE else null
     }
 
     fun exception(

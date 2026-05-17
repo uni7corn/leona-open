@@ -26,7 +26,9 @@ import org.junit.Test
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
 import java.io.IOException
+import java.security.cert.CertPathValidatorException
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLHandshakeException
 
 class SecureChannelTest {
 
@@ -326,6 +328,36 @@ class SecureChannelTest {
         assertTrue(error.message.orEmpty().contains("cause=java.io.IOException"))
         assertFalse(error.message.orEmpty().contains("ct_0123456789abcdef0123456789"))
         assertTrue(error.message.orEmpty().contains("<redacted>"))
+    }
+
+    @Test
+    fun `public hosted reporting classifies tls trust anchor failure`() = runBlocking {
+        val tlsError = SSLHandshakeException("handshake failed").apply {
+            initCause(CertPathValidatorException("Trust anchor for certification path not found."))
+        }
+        val client = PublicHostedReportingClient(
+            LeonaConfig.Builder().build(),
+            OkHttpClient.Builder()
+                .addInterceptor {
+                    throw tlsError
+                }
+                .build(),
+        )
+
+        val error = runCatching {
+            client.upload(
+                endpoint = "https://example.invalid",
+                apiKey = "leona_test_app_key",
+                sdkVersion = "test",
+                payload = byteArrayOf(1, 2, 3),
+                deviceContext = deviceContext(),
+            )
+        }.exceptionOrNull()
+
+        assertNotNull(error)
+        assertEquals(SecureReportingErrorCode.TLS_TRUST_ANCHOR, (error as SecureReportingException).code)
+        assertTrue(error.message.orEmpty().contains("diagnostic=tls_trust_anchor"))
+        assertFalse(error.message.orEmpty().contains("diagnostic=unknown"))
     }
 
     @Test
