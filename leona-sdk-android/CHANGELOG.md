@@ -4,6 +4,25 @@ All notable changes to Leona Android SDK are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Restored Android 6 / API 23 public hosted reporting compatibility for the
+  Leona hosted endpoint by falling back to a bundled ISRG Root X1 trust anchor
+  only after the platform trust manager fails for `leona.xiyanshan.com`.
+  Custom hosts are not covered by this fallback, and configured certificate
+  pins remain enforced.
+
+### Validation notes
+- API 23 hosted-reporting smoke passed with a real hosted AppKey after the
+  trust fallback, returning a BoxId and canonical id without TLS trust-anchor,
+  SSL handshake, auth, timestamp-skew, or server-5xx errors.
+
+### Planned
+- AAR release packaging hardening
+- More real-device acceptance evidence
+- Additional field validation on real devices and attacker sandboxes
+
 ## [0.2.0] - 2026-05-17
 
 ### Added
@@ -130,10 +149,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sample app still defaults to local stub mode
 - Real Android ↔ server ↔ demo backend acceptance is archived on emulator; real-device archive is still pending
 - Public API should still be treated as alpha and may change before beta
-
-## [Unreleased]
-
-### Planned
-- AAR release packaging hardening
-- More real-device acceptance evidence
-- Additional field validation on real devices and attacker sandboxes

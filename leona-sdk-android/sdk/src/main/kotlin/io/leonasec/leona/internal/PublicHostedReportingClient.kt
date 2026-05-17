@@ -18,13 +18,25 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okio.ByteString.Companion.decodeBase64
 import okio.ByteString.Companion.toByteString
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.net.URI
+import java.security.KeyStore
 import java.security.MessageDigest
+import java.security.SecureRandom
+import java.security.cert.CertificateException
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
 
 /**
  * Public-safe hosted upload path used when the closed-source secure reporting
@@ -134,6 +146,12 @@ internal class PublicHostedReportingClient(
                 .connectTimeout(3, TimeUnit.SECONDS)
                 .readTimeout(8, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
+            if (shouldUseHostedTrustFallback(config.reportingEndpoint)) {
+                val trustManager = leonaHostedTrustManager()
+                val sslContext = SSLContext.getInstance("TLS")
+                sslContext.init(null, arrayOf<TrustManager>(trustManager), SecureRandom())
+                builder.sslSocketFactory(sslContext.socketFactory, trustManager)
+            }
             if (config.certificatePins.isNotEmpty()) {
                 val pinner = CertificatePinner.Builder()
                 config.certificatePins.forEach { (host, pins) ->
@@ -143,6 +161,47 @@ internal class PublicHostedReportingClient(
             }
             return builder.build()
         }
+
+        internal fun shouldUseHostedTrustFallback(endpoint: String?): Boolean {
+            val normalized = endpoint?.trim()?.takeIf { it.isNotEmpty() } ?: return false
+            val host = runCatching { URI(publicSenseUrl(normalized)).host?.lowercase() }
+                .getOrNull()
+            return host in LEONA_HOSTED_TRUST_FALLBACK_HOSTS
+        }
+
+        private fun leonaHostedTrustManager(): X509TrustManager =
+            DelegatingTrustManager(
+                primary = defaultTrustManager(),
+                fallback = trustManagerForPemCertificate(ISRG_ROOT_X1_PEM),
+            )
+
+        private fun defaultTrustManager(): X509TrustManager {
+            val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            factory.init(null as KeyStore?)
+            return factory.trustManagers.singleX509TrustManager()
+        }
+
+        private fun trustManagerForPemCertificate(pem: String): X509TrustManager {
+            val derBytes = pem.lineSequence()
+                .filterNot { it.startsWith("-----") }
+                .joinToString(separator = "")
+                .decodeBase64()
+                ?.toByteArray()
+                ?: throw CertificateException("Unable to decode bundled ISRG Root X1 certificate")
+            val certificate = CertificateFactory.getInstance("X.509")
+                .generateCertificate(ByteArrayInputStream(derBytes))
+            val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+                load(null, null)
+                setCertificateEntry("isrg-root-x1", certificate)
+            }
+            val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            factory.init(keyStore)
+            return factory.trustManagers.singleX509TrustManager()
+        }
+
+        private fun Array<TrustManager>.singleX509TrustManager(): X509TrustManager =
+            filterIsInstance<X509TrustManager>().singleOrNull()
+                ?: error("Expected exactly one X509TrustManager")
 
         private fun publicSenseUrl(endpoint: String): String {
             val normalized = endpoint.trim().trimEnd('/')
@@ -241,6 +300,66 @@ internal class PublicHostedReportingClient(
             return ctor.newInstance(value)
         }
 
+        private val LEONA_HOSTED_TRUST_FALLBACK_HOSTS = setOf("leona.xiyanshan.com")
         private val CANONICAL_DEVICE_ID_PATTERN = Regex("^L[0-9a-fA-F]{32,64}$")
+
+        private const val ISRG_ROOT_X1_PEM = """
+-----BEGIN CERTIFICATE-----
+MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+-----END CERTIFICATE-----
+"""
+    }
+
+    private class DelegatingTrustManager(
+        private val primary: X509TrustManager,
+        private val fallback: X509TrustManager,
+    ) : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<out X509Certificate>, authType: String) {
+            primary.checkClientTrusted(chain, authType)
+        }
+
+        override fun checkServerTrusted(chain: Array<out X509Certificate>, authType: String) {
+            try {
+                primary.checkServerTrusted(chain, authType)
+            } catch (primaryError: CertificateException) {
+                try {
+                    fallback.checkServerTrusted(chain, authType)
+                } catch (fallbackError: CertificateException) {
+                    primaryError.addSuppressed(fallbackError)
+                    throw primaryError
+                }
+            }
+        }
+
+        override fun getAcceptedIssuers(): Array<X509Certificate> =
+            primary.acceptedIssuers + fallback.acceptedIssuers
     }
 }

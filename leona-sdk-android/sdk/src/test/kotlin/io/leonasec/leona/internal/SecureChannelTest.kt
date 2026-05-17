@@ -361,6 +361,22 @@ class SecureChannelTest {
     }
 
     @Test
+    fun `public hosted reporting enables trust fallback only for leona hosted endpoint`() {
+        assertTrue(
+            PublicHostedReportingClient.shouldUseHostedTrustFallback("https://leona.xiyanshan.com"),
+        )
+        assertTrue(
+            PublicHostedReportingClient.shouldUseHostedTrustFallback("https://leona.xiyanshan.com/v1/sense"),
+        )
+        assertFalse(
+            PublicHostedReportingClient.shouldUseHostedTrustFallback("https://api.example.test"),
+        )
+        assertFalse(
+            PublicHostedReportingClient.shouldUseHostedTrustFallback(""),
+        )
+    }
+
+    @Test
     fun `public hosted reporting accepts endpoint already pointing at v1 sense`() = runBlocking {
         val server = MockWebServer()
         server.enqueue(
