@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_DIR="$(cd "${ROOT_DIR}/.." && pwd)"
+VERSION="${LEONA_SDK_VERSION:-0.3.0}"
+REPORT_DIR="${LEONA_RELEASE_READINESS_OUT:-/tmp/leona-v0.3-readiness-$(date +%Y%m%d-%H%M%S)}"
+STATUS=0
+PASS_COUNT=0
+FAILURES=()
+WARNINGS=()
+BLOCKERS=()
+
+mkdir -p "${REPORT_DIR}"
+
+pass() {
+  PASS_COUNT=$((PASS_COUNT + 1))
+  printf '[pass] %s\n' "$1"
+}
+
+fail() {
+  STATUS=1
+  FAILURES+=("$1")
+  printf '[fail] %s\n' "$1" >&2
+}
+
+warn() {
+  WARNINGS+=("$1")
+  printf '[warn] %s\n' "$1" >&2
+}
+
+blocker() {
+  BLOCKERS+=("$1")
+  printf '[blocked] %s\n' "$1"
+}
+
+contains() {
+  local file="$1"
+  local pattern="$2"
+  [[ -f "${file}" ]] && grep -Eq "${pattern}" "${file}"
+}
+
+require_contains() {
+  local label="$1"
+  local file="$2"
+  local pattern="$3"
+  if contains "${file}" "${pattern}"; then
+    pass "${label}"
+  else
+    fail "${label}: missing pattern ${pattern} in ${file}"
+  fi
+}
+
+require_executable() {
+  local label="$1"
+  local file="$2"
+  if [[ -x "${file}" ]]; then
+    pass "${label}"
+  else
+    fail "${label}: not executable (${file})"
+  fi
+}
+
+require_absent() {
+  local label="$1"
+  local pattern="$2"
+  shift 2
+  local matches
+  matches="$(rg -n "${pattern}" "$@" 2>/dev/null || true)"
+  if [[ -z "${matches}" ]]; then
+    pass "${label}"
+  else
+    fail "${label}: found forbidden public-boundary match
+${matches}"
+  fi
+}
+
+cd "${REPO_DIR}"
+
+echo "[readiness] Leona Android public SDK v${VERSION}"
+echo "[readiness] report dir: ${REPORT_DIR}"
+
+require_contains "public SDK CI workflow has native sanity gate" \
+  ".github/workflows/android.yml" \
+  "Native source sanity"
+require_contains "public SDK CI workflow has lint and unit test gate" \
+  ".github/workflows/android.yml" \
+  "Lint \\+ Unit tests|sdk:testDebugUnitTest"
+require_contains "public SDK CI workflow assembles AAR" \
+  ".github/workflows/android.yml" \
+  "Assemble AAR|sdk:assembleRelease"
+
+require_contains "next-version plan targets v0.3.0" \
+  "docs/next-version-plan.md" \
+  '目标版本：`v0\.3\.0`'
+require_contains "command board tracks P0-G release gate" \
+  "docs/v0.3-command-board.md" \
+  "P0-G"
+require_contains "command board records API23 TLS trust blocker" \
+  "docs/v0.3-command-board.md" \
+  "API23.*tls_trust_anchor|tls_trust_anchor.*API23"
+require_contains "command board records external environment blocker" \
+  "docs/v0.3-command-board.md" \
+  "Nox / LDPlayer / BlueStacks / Genymotion / cloud phone"
+
+require_contains "root README keeps evidence-only business policy wording" \
+  "README.md" \
+  "client only collects evidence and reports it|Leona provides evidence and"
+require_contains "SDK README keeps evidence-only business policy wording" \
+  "leona-sdk-android/README.md" \
+  "Leona provides evidence, not final business decisions|does not make allow/reject/block decisions"
+require_contains "CHANGELOG keeps v0.2.0 release history" \
+  "leona-sdk-android/CHANGELOG.md" \
+  "\\[0\\.2\\.0\\]"
+
+require_executable "v0.2 public consumption smoke is executable" \
+  "leona-sdk-android/scripts/verify-v0.2-public-consumption.sh"
+require_executable "clean OEM ledger gate is executable" \
+  "leona-sdk-android/scripts/verify-clean-oem-ledger.sh"
+require_executable "device id stability runner is executable" \
+  "leona-sdk-android/scripts/run-device-id-stability.sh"
+require_executable "cloud device collection runner is executable" \
+  "leona-sdk-android/scripts/run-cloud-device-collection.sh"
+
+echo "[readiness] running clean OEM ledger gate"
+"${ROOT_DIR}/scripts/verify-clean-oem-ledger.sh" > "${REPORT_DIR}/clean-oem-ledger.txt"
+pass "clean OEM ledger gate passes"
+
+require_absent "public tracked docs do not expose private/deployment terms" \
+  '/home/leona|111\.170|leona-homepage|RiskScoringEngine|LEONA_INCLUDE_PRIVATE_CORE|internal console|recent boxes|private ops' \
+  README.md \
+  leona-sdk-android/README.md \
+  leona-sdk-android/docs/TESTING.md \
+  leona-sdk-android/docs/wetest-matrix-runbook.md \
+  leona-sdk-android/docs/emulator-matrix.md \
+  leona-sdk-android/docs/rom-matrix.md \
+  leona-sdk-android/CHANGELOG.md
+
+if [[ "${LEONA_RUN_V02_PUBLIC_CONSUMPTION:-0}" == "1" ]]; then
+  echo "[readiness] running v0.2 public consumption smoke"
+  "${ROOT_DIR}/scripts/verify-v0.2-public-consumption.sh" > "${REPORT_DIR}/v0.2-public-consumption.txt"
+  pass "v0.2 public consumption smoke passes"
+else
+  warn "v0.2 public consumption smoke not rerun; set LEONA_RUN_V02_PUBLIC_CONSUMPTION=1 to execute it."
+fi
+
+if [[ "${LEONA_RUN_PUBLIC_GRADLE_GATE:-0}" == "1" ]]; then
+  echo "[readiness] running public Gradle gate"
+  (
+    cd "${ROOT_DIR}"
+    ./gradlew :sdk:lint :sdk:testDebugUnitTest :sdk:assembleRelease :sample-app:assembleRelease --no-daemon
+  ) > "${REPORT_DIR}/public-gradle-gate.txt"
+  pass "public Gradle gate passes"
+else
+  warn "public Gradle gate not rerun; set LEONA_RUN_PUBLIC_GRADLE_GATE=1 to execute it."
+fi
+
+blocker "GitHub Android Public SDK CI must be checked on the final pushed commit/tag."
+blocker "GitHub Release AAR + sha256 are produced by the final v${VERSION} tag workflow."
+blocker "GitHub Packages or selected artifact repository consumer smoke must be validated after publish."
+blocker "API 23 public hosted path still needs server certificate-chain compatibility or a scoped SDK trust fallback decision."
+blocker "P0 custom ROM/GSI/emulator/cloud phone matrix still requires external runnable samples."
+blocker "Full hidden Root/Magisk/Shamiko/HMA coverage still requires Magisk Canary >27005 or an authorized device/cloud image."
+blocker "Attestation dry-run still requires Play Integrity or OEM staging provider configuration outside the public repo."
+
+{
+  echo "# Leona v${VERSION} Release Readiness"
+  echo
+  echo "- status: $([[ "${STATUS}" == "0" ]] && echo "local-pass-with-external-blockers" || echo "failed")"
+  echo "- local pass checks: ${PASS_COUNT}"
+  echo "- report dir: \`${REPORT_DIR}\`"
+  echo
+  echo "## Failures"
+  if (( ${#FAILURES[@]} == 0 )); then
+    echo "- none"
+  else
+    printf -- '- %s\n' "${FAILURES[@]}"
+  fi
+  echo
+  echo "## Warnings"
+  if (( ${#WARNINGS[@]} == 0 )); then
+    echo "- none"
+  else
+    printf -- '- %s\n' "${WARNINGS[@]}"
+  fi
+  echo
+  echo "## External Blockers"
+  printf -- '- %s\n' "${BLOCKERS[@]}"
+} > "${REPORT_DIR}/summary.md"
+
+echo "[readiness] summary: ${REPORT_DIR}/summary.md"
+exit "${STATUS}"
