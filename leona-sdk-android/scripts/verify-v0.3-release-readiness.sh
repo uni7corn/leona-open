@@ -98,10 +98,10 @@ require_contains "command board tracks P0-G release gate" \
   "P0-G"
 require_contains "command board records API23 TLS trust blocker" \
   "docs/v0.3-command-board.md" \
-  "API23.*tls_trust_anchor|tls_trust_anchor.*API23"
+  "API23_HOSTED_REAL_APPKEY_PASS|API23.*完整 BoxId smoke"
 require_contains "command board records external environment blocker" \
   "docs/v0.3-command-board.md" \
-  "Nox / LDPlayer / BlueStacks / Genymotion / cloud phone"
+  "Nox / LDPlayer / BlueStacks / Genymotion|custom ROM / GSI / unlocked"
 
 require_contains "root README keeps evidence-only business policy wording" \
   "README.md" \
@@ -121,6 +121,12 @@ require_executable "device id stability runner is executable" \
   "leona-sdk-android/scripts/run-device-id-stability.sh"
 require_executable "cloud device collection runner is executable" \
   "leona-sdk-android/scripts/run-cloud-device-collection.sh"
+require_contains "sample app has Play Integrity bridge template" \
+  "leona-sdk-android/sample-app/PLAY_INTEGRITY_REAL_BRIDGE_TEMPLATE.md" \
+  "StandardIntegrityManager"
+require_contains "sample app keeps release builds free of fake attestation" \
+  "leona-sdk-android/sample-app/src/release/kotlin/io/leonasec/leona/sample/SamplePlayIntegrityDebugProvider.kt" \
+  "AttestationProvider\\? = null"
 
 echo "[readiness] running clean OEM ledger gate"
 "${ROOT_DIR}/scripts/verify-clean-oem-ledger.sh" > "${REPORT_DIR}/clean-oem-ledger.txt"
@@ -155,13 +161,23 @@ else
   warn "public Gradle gate not rerun; set LEONA_RUN_PUBLIC_GRADLE_GATE=1 to execute it."
 fi
 
+if [[ "${LEONA_RUN_ATTESTATION_DRY_RUN:-0}" == "1" ]]; then
+  echo "[readiness] running attestation dry-run unit tests"
+  (
+    cd "${ROOT_DIR}"
+    ./gradlew :sample-app:testDebugUnitTest --tests 'io.leonasec.leona.sample.SamplePlayIntegrityTest' --no-daemon
+  ) > "${REPORT_DIR}/attestation-dry-run-unit-tests.txt"
+  pass "attestation dry-run unit tests pass"
+else
+  warn "attestation dry-run unit tests not rerun; set LEONA_RUN_ATTESTATION_DRY_RUN=1 to execute them."
+fi
+
 blocker "GitHub Android Public SDK CI must be checked on the final pushed commit/tag."
 blocker "GitHub Release AAR + sha256 are produced by the final v${VERSION} tag workflow."
 blocker "GitHub Packages or selected artifact repository consumer smoke must be validated after publish."
-blocker "API 23 public hosted path still needs server certificate-chain compatibility or a scoped SDK trust fallback decision."
 blocker "P0 custom ROM/GSI/emulator/cloud phone matrix still requires external runnable samples."
-blocker "Full hidden Root/Magisk/Shamiko/HMA coverage still requires Magisk Canary >27005 or an authorized device/cloud image."
-blocker "Attestation dry-run still requires Play Integrity or OEM staging provider configuration outside the public repo."
+blocker "Additional hidden Root/Magisk/Shamiko/HMA combinations still need more authorized samples before release."
+blocker "Real attestation provider smoke still requires Play Integrity or OEM staging provider material outside the public repo."
 
 {
   echo "# Leona v${VERSION} Release Readiness"
