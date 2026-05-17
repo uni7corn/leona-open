@@ -25,6 +25,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class SecureChannelTest {
@@ -296,6 +297,35 @@ class SecureChannelTest {
         } finally {
             server.shutdown()
         }
+    }
+
+    @Test
+    fun `public hosted reporting unknown network failure includes safe cause class`() = runBlocking {
+        val client = PublicHostedReportingClient(
+            LeonaConfig.Builder().build(),
+            OkHttpClient.Builder()
+                .addInterceptor {
+                    throw IOException("broken transport ct_0123456789abcdef0123456789")
+                }
+                .build(),
+        )
+
+        val error = runCatching {
+            client.upload(
+                endpoint = "https://example.invalid",
+                apiKey = "leona_test_app_key",
+                sdkVersion = "test",
+                payload = byteArrayOf(1, 2, 3),
+                deviceContext = deviceContext(),
+            )
+        }.exceptionOrNull()
+
+        assertNotNull(error)
+        assertEquals(SecureReportingErrorCode.UNKNOWN, (error as SecureReportingException).code)
+        assertTrue(error.message.orEmpty().contains("diagnostic=unknown"))
+        assertTrue(error.message.orEmpty().contains("cause=java.io.IOException"))
+        assertFalse(error.message.orEmpty().contains("ct_0123456789abcdef0123456789"))
+        assertTrue(error.message.orEmpty().contains("<redacted>"))
     }
 
     @Test

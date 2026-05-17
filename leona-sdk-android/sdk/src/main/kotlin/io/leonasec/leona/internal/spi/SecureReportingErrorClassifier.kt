@@ -88,8 +88,28 @@ object SecureReportingErrorClassifier {
                     append(", ")
                     append(it.take(512))
                 }
+                ?: cause
+                    ?.takeIf { classification.code == SecureReportingErrorCode.UNKNOWN }
+                    ?.let {
+                        append(", cause=")
+                        append(safeCauseSummary(it).take(256))
+                    }
         }
         return SecureReportingException(classification, message, cause)
+    }
+
+    private fun safeCauseSummary(cause: Throwable): String {
+        val type = cause.javaClass.name
+        val message = cause.message
+            ?.replace(Regex("[\\r\\n\\t]+"), " ")
+            ?.replace(Regex("ct_[A-Za-z0-9]{20,}"), "<redacted>")
+            ?.take(160)
+            .orEmpty()
+        return if (message.isBlank()) {
+            type
+        } else {
+            "$type: $message"
+        }
     }
 
     private fun hasTimestampSkewMarker(text: String): Boolean {

@@ -101,6 +101,22 @@ dependencies {
 GitHub Release AAR + `.sha256` files remain the fallback path for teams that do
 not want to configure GitHub Packages credentials in Gradle.
 
+Post-release consumption smoke:
+
+```bash
+cd leona-sdk-android
+./scripts/verify-v0.2-public-consumption.sh
+```
+
+Without package credentials, this verifies the public GitHub Release AAR
+fallback and `.sha256`. To also verify GitHub Packages remote Gradle resolution,
+set `LEONA_GITHUB_PACKAGES_TOKEN` or `GITHUB_TOKEN` to a token with
+`read:packages`.
+
+`v0.2.x` hotfixes are limited to SDK acquisition, integration crashes, severe
+false positives, public API compatibility, and public documentation drift. New
+environment-detection capabilities stay in `v0.3.0+`.
+
 ## Backend: Exchange BoxId for Device Evidence
 
 The Android app must never call the evidence query API directly. The app sends

@@ -120,6 +120,29 @@ Set `LEONA_RUN_MAVEN_CONSUMER_GATE=1` or `LEONA_RUN_PUBLIC_GRADLE_GATE=1` when
 you want that wrapper to rerun the heavier Gradle gates instead of only checking
 their configured entrypoints.
 
+After a release is published, run the public consumption smoke:
+
+```bash
+./scripts/verify-v0.2-public-consumption.sh
+```
+
+By default it downloads the GitHub Release AAR and `.sha256`, then verifies the
+checksum. If you also need to validate the GitHub Packages Maven path, provide a
+token with package read permission:
+
+```bash
+LEONA_GITHUB_PACKAGES_TOKEN=github_pat_with_read_packages \
+  ./scripts/verify-v0.2-public-consumption.sh
+```
+
+Do not commit this token or bake it into Gradle files. Keep it in CI secrets,
+developer environment variables, or your dependency-management secret store.
+
+`v0.2.x` hotfixes should stay narrow: SDK acquisition, integration crashes,
+severe false positives, public API compatibility, and public documentation
+drift. New detector coverage, environment matrices, attestation dry-runs, and
+Root/Hook provenance work belong to `v0.3.0+`.
+
 ## Install from GitHub Release
 
 GitHub Release AAR downloads remain supported as a fallback. Download
@@ -631,6 +654,9 @@ For security reasons, this public repository does not include:
 - Evidence-only client posture remains unchanged; backend policy owns decisions
 
 **v0.3.0+**:
+- Android API 23-30 compatibility diagnostics
+- Custom ROM, GSI, emulator, cloud-phone, Root, Magisk, Zygisk, and Xposed evidence provenance
+- Attestation provider dry-run reporting
 - Separate build-time tools: `leona-so-protector`, `leona-dex-packer`
 - Hosted Leona API/backend integration hardening
 - Commercial/private: persistent device fingerprint, VM virtualization, private deployment
