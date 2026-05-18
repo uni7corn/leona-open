@@ -90,18 +90,24 @@ require_contains "public SDK CI workflow assembles AAR" \
   ".github/workflows/android.yml" \
   "Assemble AAR|sdk:assembleRelease"
 
-require_contains "next-version plan targets v0.3.0" \
-  "docs/next-version-plan.md" \
-  '目标版本：`v0\.3\.0`'
-require_contains "command board tracks P0-G release gate" \
-  "docs/v0.3-command-board.md" \
-  "P0-G"
-require_contains "command board records API23 TLS trust blocker" \
-  "docs/v0.3-command-board.md" \
-  "API23_HOSTED_REAL_APPKEY_PASS|API23.*完整 BoxId smoke"
-require_contains "command board records external environment blocker" \
-  "docs/v0.3-command-board.md" \
-  "Nox / LDPlayer / BlueStacks / Genymotion|custom ROM / GSI / unlocked"
+require_contains "Gradle publication version is v${VERSION}" \
+  "leona-sdk-android/gradle.properties" \
+  "^VERSION_NAME=${VERSION}$"
+require_contains "SDK runtime version constant is v${VERSION}" \
+  "leona-sdk-android/sdk/src/main/kotlin/io/leonasec/leona/BuildConstants.kt" \
+  "VERSION_NAME = \"${VERSION}\""
+require_contains "sample app versionName is v${VERSION}" \
+  "leona-sdk-android/sample-app/build.gradle.kts" \
+  "versionName = \"${VERSION}\""
+require_contains "root README documents v${VERSION} dependency" \
+  "README.md" \
+  "leona-sdk-android:${VERSION}"
+require_contains "SDK README documents v${VERSION} dependency" \
+  "leona-sdk-android/README.md" \
+  "leona-sdk-android:${VERSION}"
+require_contains "SDK README documents v${VERSION} release AAR fallback" \
+  "leona-sdk-android/README.md" \
+  "leona-sdk-android-${VERSION}\\.aar"
 
 require_contains "root README keeps evidence-only business policy wording" \
   "README.md" \
@@ -109,11 +115,14 @@ require_contains "root README keeps evidence-only business policy wording" \
 require_contains "SDK README keeps evidence-only business policy wording" \
   "leona-sdk-android/README.md" \
   "Leona provides evidence, not final business decisions|does not make allow/reject/block decisions"
+require_contains "CHANGELOG keeps v${VERSION} release history" \
+  "leona-sdk-android/CHANGELOG.md" \
+  "\\[${VERSION//./\\.}\\]"
 require_contains "CHANGELOG keeps v0.2.0 release history" \
   "leona-sdk-android/CHANGELOG.md" \
   "\\[0\\.2\\.0\\]"
 
-require_executable "v0.2 public consumption smoke is executable" \
+require_executable "public consumption smoke is executable" \
   "leona-sdk-android/scripts/verify-v0.2-public-consumption.sh"
 require_executable "clean OEM ledger gate is executable" \
   "leona-sdk-android/scripts/verify-clean-oem-ledger.sh"
@@ -142,12 +151,13 @@ require_absent "public tracked docs do not expose private/deployment terms" \
   leona-sdk-android/docs/rom-matrix.md \
   leona-sdk-android/CHANGELOG.md
 
-if [[ "${LEONA_RUN_V02_PUBLIC_CONSUMPTION:-0}" == "1" ]]; then
-  echo "[readiness] running v0.2 public consumption smoke"
-  "${ROOT_DIR}/scripts/verify-v0.2-public-consumption.sh" > "${REPORT_DIR}/v0.2-public-consumption.txt"
-  pass "v0.2 public consumption smoke passes"
+if [[ "${LEONA_RUN_PUBLIC_CONSUMPTION:-${LEONA_RUN_V02_PUBLIC_CONSUMPTION:-0}}" == "1" ]]; then
+  echo "[readiness] running v${VERSION} public consumption smoke"
+  LEONA_SDK_VERSION="${VERSION}" \
+    "${ROOT_DIR}/scripts/verify-v0.2-public-consumption.sh" > "${REPORT_DIR}/v${VERSION}-public-consumption.txt"
+  pass "v${VERSION} public consumption smoke passes"
 else
-  warn "v0.2 public consumption smoke not rerun; set LEONA_RUN_V02_PUBLIC_CONSUMPTION=1 to execute it."
+  warn "v${VERSION} public consumption smoke not rerun; set LEONA_RUN_PUBLIC_CONSUMPTION=1 to execute it after tag assets are published."
 fi
 
 if [[ "${LEONA_RUN_PUBLIC_GRADLE_GATE:-0}" == "1" ]]; then
@@ -175,9 +185,9 @@ fi
 blocker "GitHub Android Public SDK CI must be checked on the final pushed commit/tag."
 blocker "GitHub Release AAR + sha256 are produced by the final v${VERSION} tag workflow."
 blocker "GitHub Packages or selected artifact repository consumer smoke must be validated after publish."
-blocker "P0 custom ROM/GSI/emulator/cloud phone matrix still requires external runnable samples."
-blocker "Additional hidden Root/Magisk/Shamiko/HMA combinations still need more authorized samples before release."
-blocker "Real attestation provider smoke still requires Play Integrity or OEM staging provider material outside the public repo."
+warn "Real custom ROM/GSI/unlocked-device and broader external emulator samples are deferred to the next iteration."
+warn "Additional hidden Root/Magisk/Shamiko/HMA combinations are deferred to the next iteration."
+warn "Real Play Integrity/OEM provider smoke is deferred to the next iteration; v${VERSION} ships the public dry-run gate."
 
 {
   echo "# Leona v${VERSION} Release Readiness"

@@ -6,7 +6,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Min SDK](https://img.shields.io/badge/minSdk-21-brightgreen)]()
-[![Version](https://img.shields.io/badge/version-0.2.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.3.0-blue)]()
 
 </div>
 
@@ -59,7 +59,7 @@ anything.
 
 ## Install from Maven
 
-The first automated Maven channel for `v0.2.0` is GitHub Packages. It is the
+The automated Maven channel for `v0.3.0` is GitHub Packages. It is the
 lowest-risk public-safe path for this repository because tag builds can publish
 with the repository-scoped `GITHUB_TOKEN` and do not require Maven Central
 namespace approval, Central Portal tokens, or PGP signing keys.
@@ -87,7 +87,7 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("io.leonasec:leona-sdk-android:0.2.0")
+    implementation("io.leonasec:leona-sdk-android:0.3.0")
 }
 ```
 
@@ -102,7 +102,7 @@ Before cutting a tag, run the local consumer gate:
 ./scripts/verify-maven-local-consumer.sh
 ```
 
-This publishes `io.leonasec:leona-sdk-android:0.2.0` into an isolated temporary
+This publishes `io.leonasec:leona-sdk-android:0.3.0` into an isolated temporary
 Maven local repository, then resolves it from a separate Gradle consumer project
 and checks that the AAR plus expected public transitive dependencies are
 available. This does not replace the required post-tag GitHub Packages remote
@@ -113,7 +113,7 @@ the external gates that cannot be completed until a tag or real device is
 available:
 
 ```bash
-./scripts/verify-v0.2-release-readiness.sh
+./scripts/verify-v0.3-release-readiness.sh
 ```
 
 Set `LEONA_RUN_MAVEN_CONSUMER_GATE=1` or `LEONA_RUN_PUBLIC_GRADLE_GATE=1` when
@@ -123,7 +123,7 @@ their configured entrypoints.
 After a release is published, run the public consumption smoke:
 
 ```bash
-./scripts/verify-v0.2-public-consumption.sh
+LEONA_SDK_VERSION=0.3.0 ./scripts/verify-v0.2-public-consumption.sh
 ```
 
 By default it downloads the GitHub Release AAR and `.sha256`, then verifies the
@@ -131,28 +131,30 @@ checksum. If you also need to validate the GitHub Packages Maven path, provide a
 token with package read permission:
 
 ```bash
-LEONA_GITHUB_PACKAGES_TOKEN=github_pat_with_read_packages \
-  ./scripts/verify-v0.2-public-consumption.sh
+LEONA_GITHUB_PACKAGES_TOKEN=read_packages_token \
+  LEONA_SDK_VERSION=0.3.0 ./scripts/verify-v0.2-public-consumption.sh
 ```
 
 Do not commit this token or bake it into Gradle files. Keep it in CI secrets,
 developer environment variables, or your dependency-management secret store.
 
-`v0.2.x` hotfixes should stay narrow: SDK acquisition, integration crashes,
-severe false positives, public API compatibility, and public documentation
-drift. New detector coverage, environment matrices, attestation dry-runs, and
-Root/Hook provenance work belong to `v0.3.0+`.
+`v0.3.0` keeps the evidence-only SDK contract and adds Android API 23 hosted
+reporting compatibility, API 23-30 validation coverage, cloud-phone evidence
+collection, HMA/Magisk/LSPosed provenance validation, and attestation dry-run
+release gates. Real custom ROM/GSI/unlocked-device samples, broader external
+emulator templates, and real Play Integrity/OEM provider smoke belong to the
+next iteration.
 
 ## Install from GitHub Release
 
 GitHub Release AAR downloads remain supported as a fallback. Download
-`leona-sdk-android-0.2.0.aar` from the GitHub Release and place it in your app
-module, for example `app/libs/leona-sdk-android-0.2.0.aar`.
+`leona-sdk-android-0.3.0.aar` from the GitHub Release and place it in your app
+module, for example `app/libs/leona-sdk-android-0.3.0.aar`.
 
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation(files("libs/leona-sdk-android-0.2.0.aar"))
+    implementation(files("libs/leona-sdk-android-0.3.0.aar"))
 
     // Transitive dependencies required by the public AAR.
     implementation("androidx.core:core-ktx:1.13.1")
@@ -377,7 +379,7 @@ query `/v1/verdict` with the SecretKey and apply its own business policy.
 
 Public hosted reporting does not require the APK to sign uploads with the
 device wall clock. `serverTimeMillis` / `serverClockOffsetMillis` are private
-signed-transport diagnostics in `v0.2.0`, not public hosted response fields. If
+signed-transport diagnostics, not public hosted response fields. If
 your backend query receives a timestamp-related error, treat it as a
 transport/authentication issue and retry with a fresh backend timestamp; do not
 interpret it as device risk evidence.
@@ -607,8 +609,10 @@ your reporting endpoint does. The public surface remains intentionally small.
 
 ## Current status
 
-`0.2.0` keeps the public Android SDK integration surface stable while adding an
-automated Maven distribution path. The SDK is ready for hosted Leona API
+`0.3.0` keeps the public Android SDK integration surface stable while adding
+Android API 23 hosted-reporting compatibility, API 23-30 validation coverage,
+cloud-phone evidence collection, HMA/Magisk/LSPosed provenance validation, and
+attestation dry-run release gates. The SDK is ready for hosted Leona API
 integration, while advanced private detectors and hosted policy remain
 closed-source.
 
@@ -653,10 +657,14 @@ For security reasons, this public repository does not include:
 - GitHub Release AAR + sha256 fallback remains available
 - Evidence-only client posture remains unchanged; backend policy owns decisions
 
-**v0.3.0+**:
+**v0.3.0**:
 - Android API 23-30 compatibility diagnostics
-- Custom ROM, GSI, emulator, cloud-phone, Root, Magisk, Zygisk, and Xposed evidence provenance
+- Cloud-phone, HMA, Magisk, Zygisk, and Xposed evidence provenance validation
 - Attestation provider dry-run reporting
+
+**v0.4.0+**:
+- Real custom ROM, GSI, unlocked-device, and broader external emulator samples
+- Real Play Integrity/OEM provider smoke with production-like provider material
 - Separate build-time tools: `leona-so-protector`, `leona-dex-packer`
 - Hosted Leona API/backend integration hardening
 - Commercial/private: persistent device fingerprint, VM virtualization, private deployment

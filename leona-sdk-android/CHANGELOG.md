@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- Real custom ROM, GSI, unlocked-device, and broader external emulator sample
+  runs for the environment matrix.
+- Real Play Integrity/OEM provider smoke with production-like provider
+  material.
+- Maven Central publishing after namespace, credential, and signing material
+  are ready.
+- Separate build-time tools: `leona-so-protector` and `leona-dex-packer`.
+
+## [0.3.0] - 2026-05-18
+
+### Added
+- Android API 23-30 validation coverage for the public SDK release gate,
+  including API-level diagnostics that keep client behavior evidence-only.
+- Cloud-phone evidence collection and validation records for hosted public
+  reporting on Samsung/Asus sample devices.
+- HMA, Magisk, Zygisk, and LSPosed provenance validation records for authorized
+  test environments. These remain evidence signals; the Android SDK does not
+  make allow/reject/block decisions.
+- Attestation provider dry-run release gate for the sample Play Integrity
+  bridge template, keeping real provider material outside the public
+  repository.
+- v0.3 release-readiness wrapper for the public SDK, local Gradle gate,
+  clean-OEM ledger gate, and post-tag artifact verification checklist.
+
 ### Fixed
 - Restored Android 6 / API 23 public hosted reporting compatibility for the
   Leona hosted endpoint by falling back to a bundled ISRG Root X1 trust anchor
@@ -17,11 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - API 23 hosted-reporting smoke passed with a real hosted AppKey after the
   trust fallback, returning a BoxId and canonical id without TLS trust-anchor,
   SSL handshake, auth, timestamp-skew, or server-5xx errors.
-
-### Planned
-- AAR release packaging hardening
-- More real-device acceptance evidence
-- Additional field validation on real devices and attacker sandboxes
+- API 24, 26, 29, and 30 emulator/AVD validation passed the local public SDK
+  evidence collection flow.
+- API 28 WeTest smoke and cloud-phone sample validation completed for the
+  release boundary available before publishing.
+- Real custom ROM/GSI/unlocked-device samples, broader external emulator
+  templates, and real Play Integrity/OEM provider smoke are intentionally
+  deferred to the next iteration.
 
 ## [0.2.0] - 2026-05-17
 

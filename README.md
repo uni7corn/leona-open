@@ -70,7 +70,7 @@ Send `boxId` to your business backend. Your backend queries the Leona verdict AP
 
 ## Android SDK Dependency
 
-For `v0.2.0`, the first automated Maven channel is GitHub Packages:
+For `v0.3.0`, the automated Maven channel is GitHub Packages:
 
 ```kotlin
 // settings.gradle.kts
@@ -94,7 +94,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("io.leonasec:leona-sdk-android:0.2.0")
+    implementation("io.leonasec:leona-sdk-android:0.3.0")
 }
 ```
 
@@ -113,9 +113,11 @@ fallback and `.sha256`. To also verify GitHub Packages remote Gradle resolution,
 set `LEONA_GITHUB_PACKAGES_TOKEN` or `GITHUB_TOKEN` to a token with
 `read:packages`.
 
-`v0.2.x` hotfixes are limited to SDK acquisition, integration crashes, severe
-false positives, public API compatibility, and public documentation drift. New
-environment-detection capabilities stay in `v0.3.0+`.
+`v0.3.0` keeps the evidence-only SDK contract and adds Android API 23 hosted
+reporting compatibility, API 23-30 validation coverage, cloud-phone evidence
+collection, HMA/Magisk/LSPosed provenance validation, and attestation dry-run
+release gates. Real custom ROM/GSI/unlocked-device samples and real
+Play Integrity/OEM provider smoke are tracked for the next iteration.
 
 ## Backend: Exchange BoxId for Device Evidence
 
