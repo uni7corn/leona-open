@@ -17,6 +17,7 @@ STATUS=0
 PASS_COUNT=0
 SKIPS=()
 FAILURES=()
+DOWNLOAD_METHOD=""
 
 mkdir -p "${OUT_DIR}"
 
@@ -36,6 +37,24 @@ fail() {
   printf '[fail] %s\n' "$1" >&2
 }
 
+download_release_assets_with_curl() {
+  curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsSL "${RELEASE_BASE_URL}/${AAR_NAME}" -o "${AAR_PATH}" &&
+    curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsSL "${RELEASE_BASE_URL}/${SHA_NAME}" -o "${SHA_PATH}"
+}
+
+download_release_assets_with_gh() {
+  if ! command -v gh >/dev/null 2>&1; then
+    return 1
+  fi
+
+  rm -f "${AAR_PATH}" "${SHA_PATH}"
+  gh release download "v${VERSION}" \
+    --repo "${REPO_OWNER}/${REPO_NAME}" \
+    --pattern "${AAR_NAME}" \
+    --pattern "${SHA_NAME}" \
+    --dir "${OUT_DIR}" >/dev/null
+}
+
 echo "[public-consumption] Leona Android SDK v${VERSION}"
 echo "[public-consumption] report dir: ${OUT_DIR}"
 
@@ -44,15 +63,20 @@ SHA_NAME="${AAR_NAME}.sha256"
 AAR_PATH="${OUT_DIR}/${AAR_NAME}"
 SHA_PATH="${OUT_DIR}/${SHA_NAME}"
 
-if curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsSL "${RELEASE_BASE_URL}/${AAR_NAME}" -o "${AAR_PATH}" &&
-   curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsSL "${RELEASE_BASE_URL}/${SHA_NAME}" -o "${SHA_PATH}"; then
+if download_release_assets_with_curl; then
+  DOWNLOAD_METHOD="curl"
+elif download_release_assets_with_gh; then
+  DOWNLOAD_METHOD="gh-release-download"
+fi
+
+if [[ -n "${DOWNLOAD_METHOD}" ]]; then
   (
     cd "${OUT_DIR}"
     shasum -a 256 -c "${SHA_NAME}"
   ) > "${OUT_DIR}/release-aar-sha256.txt"
-  pass "GitHub Release AAR fallback downloads and matches sha256"
+  pass "GitHub Release AAR fallback downloads via ${DOWNLOAD_METHOD} and matches sha256"
 else
-  fail "GitHub Release AAR fallback download failed from ${RELEASE_BASE_URL}"
+  fail "GitHub Release AAR fallback download failed from ${RELEASE_BASE_URL}; curl failed and gh release download fallback was unavailable or failed"
 fi
 
 if [[ -z "${PACKAGE_TOKEN}" ]]; then
