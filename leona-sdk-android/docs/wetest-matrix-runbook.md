@@ -94,6 +94,21 @@ hashes on pass rows, requires each pass row to reference an artifact directory
 and canonical / authoritative / telemetry evidence recording, and fails if any
 pass row contains release-gate false-positive family terms.
 
+For the v0.4 Android environment matrix, also run:
+
+```bash
+./scripts/verify-v0.4-android-matrix-readiness.sh
+```
+
+This gate is non-destructive: it does not start WeTest, ADB, an emulator, or any
+paid device session. It reads `rom-matrix.md`, `emulator-matrix.md`, and this
+runbook, verifies redaction, counts already completed matrix categories, and
+reports which P0-2 samples still require external devices or emulator installs.
+By default, missing external samples are recorded as
+`local-pass-with-external-blockers`. Set
+`LEONA_REQUIRE_FULL_V04_ANDROID_MATRIX=1` when the release gate must fail until
+the full v0.4 matrix is complete.
+
 ### Known False-Positive Regression Notes
 
 - vivo Android 10 exposes `qemu.hw.mainkeys=1` / `qemu.hw.mainkeys.vivo=0` as

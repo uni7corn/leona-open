@@ -51,7 +51,7 @@ android {
         minSdk = if (leonaSampleEnableRealPlayIntegrityDep) 23 else 21
         targetSdk = 34
         versionCode = 1
-        versionName = "0.3.0"
+        versionName = "0.4.0"
         buildConfigField("String", "LEONA_API_KEY", "\"\"")
         buildConfigField("String", "LEONA_TENANT_ID", "sample".quoted())
         buildConfigField("String", "LEONA_REPORTING_ENDPOINT", "\"\"")

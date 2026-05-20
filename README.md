@@ -1,6 +1,9 @@
-# Leona Android Public SDK
+# Leona Public SDK
 
-Leona is an Android runtime security SDK. The public repository contains the Android integration SDK, the sample Android app, public build tooling, and public-safe documentation.
+Leona is a runtime evidence collection SDK. The public repository contains the
+released Android integration SDK, the sample Android app, public build tooling,
+public-safe documentation, and a v0.4.0 iOS public-safe scaffold/extension track
+when present.
 
 The authoritative business decision is not made inside the APK or by Leona's
 default SDK policy. Apps call `Leona.sense()` to collect and report evidence,
@@ -10,9 +13,10 @@ evidence and provenance, then applies the customer's own product policy.
 
 ## Public Repository Rule
 
-This GitHub repository intentionally keeps only the Android public integration SDK code.
+This GitHub repository intentionally keeps only public integration SDK code and
+public-safe examples.
 
-- Open source: Android SDK public API, Android sample app, Gradle build, SDK tests, public-safe docs, CI for the public AAR.
+- Open source: Android SDK public API, Android sample app, Gradle build, SDK tests, iOS public scaffold when present, public-safe docs, CI for public SDK artifacts.
 - Not open source: Leona hosted API/backend implementation, private detector catalog, private native runtime, risk weights, tenant policy, internal ops, production deployment, secrets, and closed-source tooling.
 - Directory names are kept for orientation, but closed-source directories contain only README placeholders explaining why the code is absent.
 
@@ -44,6 +48,7 @@ the customer business policy.
 ```text
 .
 ├── leona-sdk-android/   # Public Android SDK, sample app, Gradle build, SDK tests
+├── leona-sdk-ios/       # v0.4 public-safe iOS SDK scaffold and sample app
 ├── leona-server/        # Placeholder only; backend implementation is closed source
 ├── demo-backend/        # Placeholder only; hosted/customer backend examples are closed source
 ├── leona/               # Placeholder only; internal CLI/tooling is closed source
@@ -70,7 +75,7 @@ Send `boxId` to your business backend. Your backend queries the Leona verdict AP
 
 ## Android SDK Dependency
 
-For `v0.3.0`, the automated Maven channel is GitHub Packages:
+For `v0.4.0`, the automated Maven channel is GitHub Packages:
 
 ```kotlin
 // settings.gradle.kts
@@ -94,7 +99,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("io.leonasec:leona-sdk-android:0.3.0")
+    implementation("io.leonasec:leona-sdk-android:0.4.0")
 }
 ```
 
@@ -113,11 +118,12 @@ fallback and `.sha256`. To also verify GitHub Packages remote Gradle resolution,
 set `LEONA_GITHUB_PACKAGES_TOKEN` or `GITHUB_TOKEN` to a token with
 `read:packages`.
 
-`v0.3.0` keeps the evidence-only SDK contract and adds Android API 23 hosted
-reporting compatibility, API 23-30 validation coverage, cloud-phone evidence
-collection, HMA/Magisk/LSPosed provenance validation, and attestation dry-run
-release gates. Real custom ROM/GSI/unlocked-device samples and real
-Play Integrity/OEM provider smoke are tracked for the next iteration.
+`v0.4.0` keeps the evidence-only SDK contract and adds Device Evidence Graph
+release gates, Android matrix readiness checks, customer evidence report
+contracts, feedback-loop gates, release evidence-pack validation, and stricter
+public release review wrappers. Real custom ROM/GSI/unlocked-device samples,
+external emulator samples, and real Play Integrity/OEM provider smoke remain
+tracked as external-input follow-ups.
 
 ## Backend: Exchange BoxId for Device Evidence
 

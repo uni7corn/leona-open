@@ -11,6 +11,8 @@ OUT_DIR="${LEONA_PUBLIC_CONSUMPTION_OUT:-/tmp/leona-v${VERSION}-public-consumpti
 RELEASE_BASE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/v${VERSION}"
 PACKAGE_TOKEN="${LEONA_GITHUB_PACKAGES_TOKEN:-${GITHUB_TOKEN:-${GH_TOKEN:-}}}"
 PACKAGE_USER="${LEONA_GITHUB_PACKAGES_USER:-${GITHUB_ACTOR:-${USER:-leona-consumer}}}"
+CURL_CONNECT_TIMEOUT="${LEONA_PUBLIC_CONSUMPTION_CURL_CONNECT_TIMEOUT:-10}"
+CURL_MAX_TIME="${LEONA_PUBLIC_CONSUMPTION_CURL_MAX_TIME:-30}"
 STATUS=0
 PASS_COUNT=0
 SKIPS=()
@@ -42,8 +44,8 @@ SHA_NAME="${AAR_NAME}.sha256"
 AAR_PATH="${OUT_DIR}/${AAR_NAME}"
 SHA_PATH="${OUT_DIR}/${SHA_NAME}"
 
-if curl -fsSL "${RELEASE_BASE_URL}/${AAR_NAME}" -o "${AAR_PATH}" &&
-   curl -fsSL "${RELEASE_BASE_URL}/${SHA_NAME}" -o "${SHA_PATH}"; then
+if curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsSL "${RELEASE_BASE_URL}/${AAR_NAME}" -o "${AAR_PATH}" &&
+   curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsSL "${RELEASE_BASE_URL}/${SHA_NAME}" -o "${SHA_PATH}"; then
   (
     cd "${OUT_DIR}"
     shasum -a 256 -c "${SHA_NAME}"

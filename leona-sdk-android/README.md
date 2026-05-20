@@ -6,7 +6,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Min SDK](https://img.shields.io/badge/minSdk-21-brightgreen)]()
-[![Version](https://img.shields.io/badge/version-0.3.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.4.0-blue)]()
 
 </div>
 
@@ -59,7 +59,7 @@ anything.
 
 ## Install from Maven
 
-The automated Maven channel for `v0.3.0` is GitHub Packages. It is the
+The automated Maven channel for `v0.4.0` is GitHub Packages. It is the
 lowest-risk public-safe path for this repository because tag builds can publish
 with the repository-scoped `GITHUB_TOKEN` and do not require Maven Central
 namespace approval, Central Portal tokens, or PGP signing keys.
@@ -87,7 +87,7 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("io.leonasec:leona-sdk-android:0.3.0")
+    implementation("io.leonasec:leona-sdk-android:0.4.0")
 }
 ```
 
@@ -96,13 +96,24 @@ resolution. Maven Central remains the preferred zero-token public consumer
 experience, but it is blocked until the project has a verified namespace,
 Central Portal publishing credentials, and signing material.
 
+For the pre-Central release gate, run the public-safe readiness check:
+
+```bash
+./scripts/verify-maven-central-readiness.sh
+```
+
+The script validates the current publication metadata, GitHub fallback path,
+local consumer entrypoint, and required Central/PGP environment names without
+printing secret values. Missing Central Portal or signing material is reported
+as an external blocker unless `LEONA_REQUIRE_MAVEN_CENTRAL_SECRETS=1` is set.
+
 Before cutting a tag, run the local consumer gate:
 
 ```bash
 ./scripts/verify-maven-local-consumer.sh
 ```
 
-This publishes `io.leonasec:leona-sdk-android:0.3.0` into an isolated temporary
+This publishes `io.leonasec:leona-sdk-android:0.4.0` into an isolated temporary
 Maven local repository, then resolves it from a separate Gradle consumer project
 and checks that the AAR plus expected public transitive dependencies are
 available. This does not replace the required post-tag GitHub Packages remote
@@ -120,41 +131,282 @@ Set `LEONA_RUN_MAVEN_CONSUMER_GATE=1` or `LEONA_RUN_PUBLIC_GRADLE_GATE=1` when
 you want that wrapper to rerun the heavier Gradle gates instead of only checking
 their configured entrypoints.
 
+For the v0.4 Android/Server commercial pilot track, run the aggregate
+public-safe readiness gate:
+
+```bash
+./scripts/verify-v0.4-release-readiness.sh
+```
+
+It composes the clean OEM ledger, Android matrix readiness, Maven Central
+readiness, backend wrapper mock HTTP smoke, and optional Gradle/consumer gates.
+External samples, provider credentials, Maven Central credentials, and live ops
+credentials are reported as blockers instead of being printed or embedded.
+
 After a release is published, run the public consumption smoke:
 
 ```bash
-LEONA_SDK_VERSION=0.3.0 ./scripts/verify-v0.2-public-consumption.sh
+LEONA_TARGET_RELEASE_VERSION=0.4.0 ./scripts/verify-v0.4-post-release-consumption.sh
 ```
 
-By default it downloads the GitHub Release AAR and `.sha256`, then verifies the
-checksum. If you also need to validate the GitHub Packages Maven path, provide a
-token with package read permission:
+By default the v0.4 wrapper records `blocked-release-not-published` until the
+real tag workflow has published artifacts. After the release exists, it
+downloads the GitHub Release AAR and `.sha256`, then verifies the checksum. If
+you also need to validate the GitHub Packages Maven path, provide a token with
+package read permission and make the check strict:
 
 ```bash
 LEONA_GITHUB_PACKAGES_TOKEN=read_packages_token \
-  LEONA_SDK_VERSION=0.3.0 ./scripts/verify-v0.2-public-consumption.sh
+  LEONA_TARGET_RELEASE_VERSION=0.4.0 \
+  LEONA_REQUIRE_POST_RELEASE_CONSUMPTION=1 \
+  ./scripts/verify-v0.4-post-release-consumption.sh
 ```
 
 Do not commit this token or bake it into Gradle files. Keep it in CI secrets,
 developer environment variables, or your dependency-management secret store.
 
-`v0.3.0` keeps the evidence-only SDK contract and adds Android API 23 hosted
-reporting compatibility, API 23-30 validation coverage, cloud-phone evidence
-collection, HMA/Magisk/LSPosed provenance validation, and attestation dry-run
-release gates. Real custom ROM/GSI/unlocked-device samples, broader external
-emulator templates, and real Play Integrity/OEM provider smoke belong to the
-next iteration.
+Customer backend wrapper requirements are tracked in
+[`docs/backend-wrapper-contract.md`](docs/backend-wrapper-contract.md). Wrapper
+libraries are server-side only: they sign requests, fetch evidence reports,
+submit feedback labels, and redact support exports. They must not run inside an
+Android app or produce business `allow` / `reject` / `block` decisions.
+
+The public-safe wrapper skeletons live under [`wrappers/`](wrappers/). Run:
+
+```bash
+./scripts/verify-backend-wrapper-skeletons.sh
+```
+
+The v0.4 Android evidence and privacy boundary is documented in
+[`docs/v0.4-evidence-privacy-boundary.md`](docs/v0.4-evidence-privacy-boundary.md).
+It defines the evidence-only contract, redaction rules, backend-wrapper
+boundary, and external blocker handling for the Android/Server commercial pilot
+track.
+
+The public-safe release-note draft for the same track is
+[`docs/v0.4-release-notes-draft.md`](docs/v0.4-release-notes-draft.md). It lists
+completed local gates, explicit external blockers, privacy rules, and non-goals
+that must be reviewed again before a real tag.
+
+The v0.4 Android release checklist is
+[`docs/v0.4-release-checklist.md`](docs/v0.4-release-checklist.md). It is the
+public-safe pre-tag review entrypoint for local gates, optional heavy gates,
+external blockers, artifact paths, and post-release consumption smoke.
+
+The v0.4 tag release runbook is
+[`docs/v0.4-tag-release-runbook.md`](docs/v0.4-tag-release-runbook.md). It
+documents the exact public-safe order for version alignment, local candidate
+review, annotated tag push, GitHub workflow verification, and post-release
+consumption smoke.
+
+The public archive dry-run is:
+
+```bash
+./scripts/verify-v0.4-public-archive.sh
+```
+
+It creates a temporary public Android SDK archive and manifest summary without
+writing release artifacts back into the repository.
+
+To validate the archive as a consumer would receive it, run:
+
+```bash
+./scripts/verify-v0.4-public-archive-consumer.sh
+```
+
+It generates or accepts a public archive, extracts it under `/tmp`, checks the
+required public Android files, rejects private/server/iOS/Web/homepage roots,
+checks archived shell-script syntax, and scans the extracted artifact for
+forbidden public-boundary material.
+
+The Android tag publish workflow dry-run is:
+
+```bash
+./scripts/verify-v0.4-publish-workflow-dry-run.sh
+```
+
+It checks the public GitHub Actions tag workflow structure for release AAR and
+`.sha256` assets, GitHub Packages publishing, required permissions, and absence
+of non-public provider/customer/Central secrets. It does not trigger a GitHub
+workflow, create a tag, or publish artifacts.
+
+For a single pre-tag summary that composes the local readiness gate, public
+archive consumer smoke, publish workflow dry-run, public commit scope gate, and
+public release batch planner, run:
+
+```bash
+./scripts/verify-v0.4-release-candidate-manifest.sh
+```
+
+It writes a release-candidate manifest under `/tmp`, records component summary
+paths, public release batch counts, do-not-stage counts, and external blockers,
+and writes `release-evidence-pack.md` / `release-evidence-pack.json` with
+component summary SHA-256 digests, byte counts, redaction scan status, and
+before/after git index snapshots. The redaction scan covers component summaries,
+git index snapshots, and the generated evidence pack Markdown/JSON itself. It
+then runs `verify-v0.4-release-evidence-pack-schema.py` against the generated
+JSON to validate required fields, expected components, file SHA-256/byte counts,
+and Markdown/JSON parity. The schema gate is structural; it does not treat
+`redactionScan=failed` as a schema failure, so synthetic redaction tests still
+fail only on the redaction gate. The manifest fails if the staged index changes
+during the full candidate run. It still does not create a tag, trigger GitHub
+Actions, publish artifacts, execute real `git add`, stage files, start paid
+devices, or print secrets.
+
+To prove the generated-pack redaction path fails closed, run the same manifest
+with `LEONA_RC_SELF_SCAN_TEST=1`. That mode injects a synthetic marker into the
+temporary generated Markdown pack and should fail only the evidence pack
+redaction scan while still preserving the git index.
+
+For the final tag check, set `LEONA_REQUIRE_PRETAG_READY=1` so the manifest
+fails if version-alignment blockers remain.
+
+To run the manifest and its schema gate together, use the read-only review
+wrapper:
+
+```bash
+./scripts/verify-v0.4-release-candidate-review.sh
+```
+
+The wrapper writes one summary that points at the generated manifest summary
+and schema summary. It preserves the underlying manifest exit behavior, so
+strict pre-tag mode still fails while `VERSION_NAME` has not been bumped to the
+target release. It does not create tags, trigger GitHub Actions, publish
+artifacts, execute `git add`, start devices, or print secrets.
+
+Validate the wrapper summary shape separately when reviewing generated release
+evidence:
+
+```bash
+./scripts/verify-v0.4-release-candidate-review-schema.py /tmp/<review-report>/summary.md
+```
+
+The review schema gate checks manifest/schema summary paths, failure semantics,
+and the no-tag/no-publish/no-stage/no-device guarantees without staging files or
+publishing artifacts.
+
+For the final local pre-tag review command, run the review wrapper and review
+schema gate together:
+
+```bash
+./scripts/verify-v0.4-release-candidate-final-review.sh
+```
+
+The final review wrapper preserves the underlying review exit behavior, so
+strict pre-tag mode still fails while version blockers remain, and
+synthetic-negative redaction tests still fail closed. It does not create tags,
+trigger GitHub Actions, publish artifacts, execute `git add`, start devices, or
+print secrets.
+
+Validate the final review summary shape separately when archiving a pre-tag
+review:
+
+```bash
+./scripts/verify-v0.4-release-candidate-final-review-schema.py /tmp/<final-review-report>/summary.md
+```
+
+The final review schema gate checks the nested review/schema summary paths,
+wrapper failure semantics, and the no-tag/no-publish/no-stage/no-device
+guarantees without staging files or publishing artifacts.
+
+Before applying the real version bump, generate a read-only bump plan:
+
+```bash
+./scripts/verify-v0.4-version-bump-plan.py
+```
+
+It lists the required runtime marker files, optional sample/docs preview
+markers, replacement counts, current SHA-256 digests, and planned SHA-256
+digests for `0.4.0`. It does not edit files, stage paths, create tags, publish
+artifacts, start devices, or print secrets. The release candidate manifest also
+includes this plan in the local evidence pack so the tag commit can be reviewed
+before the actual version bump is applied.
+
+To prove the planned replacements converge without writing patched files, run:
+
+```bash
+./scripts/verify-v0.4-version-bump-dry-run.py
+```
+
+It applies the planned public Android marker replacements in memory and checks
+that required `VERSION_NAME`, runtime, and sample markers converge to `0.4.0`.
+It does not edit files, stage paths, create tags, publish artifacts, start
+devices, or print secrets.
+
+Before staging a public Android SDK commit from a mixed local workspace, run:
+
+```bash
+./scripts/verify-v0.4-public-commit-scope.sh
+```
+
+It checks that staged paths stay inside the public Android commit boundary and
+reports non-public dirty paths such as iOS, Web, server, homepage, deployment,
+policy, private detector, and internal-doc work so they are not included in a
+public GitHub commit. By default, non-public unstaged or untracked paths are
+reported as blockers to keep out of the commit; set
+`LEONA_REQUIRE_PUBLIC_COMMIT_CLEAN=1` when you need a strict all-clean public
+scope gate.
+
+To generate a reviewable public Android release batch plan without staging
+anything, run:
+
+```bash
+./scripts/verify-v0.4-public-release-batch.sh
+```
+
+It writes public candidate paths, do-not-stage paths, staged forbidden paths,
+the extracted stage-command draft paths, and a stage-command draft under
+`/tmp`. The verifier checks that the generated draft is parseable, exactly
+matches the public batch path list, excludes every do-not-stage path, and
+records SHA-256 digests for the reviewed path lists. It also runs the draft in
+`LEONA_ANDROID_STAGE_DRY_RUN=1` mode and confirms `git add --dry-run` preserves
+the git index. It never performs real staging, commits, tags, publishes, starts
+devices, or prints secrets.
+
+To independently validate that generated batch plan, run:
+
+```bash
+./scripts/verify-v0.4-public-release-batch-schema.py /tmp/<batch-report>/summary.md
+```
+
+The schema gate checks path-list parity, SHA-256 digests, do-not-stage
+exclusion, forbidden public prefixes, and dry-run git index preservation. It is
+also included in the aggregate readiness gate and release candidate manifest.
+
+To independently validate a generated release candidate manifest summary, run:
+
+```bash
+./scripts/verify-v0.4-release-candidate-manifest-schema.py /tmp/<rc-report>/summary.md
+```
+
+The schema gate checks component summary paths, no-tag/no-publish/no-stage
+guarantees, evidence pack schema status, public release batch fields, git index
+preservation, and version-blocker semantics. It is read-only and does not
+create tags, trigger GitHub Actions, publish artifacts, execute `git add`, start
+devices, or print secrets.
+
+The Android SDK changelog is maintained in [`CHANGELOG.md`](CHANGELOG.md). It
+records public-safe SDK distribution changes only, and keeps credentials,
+complete BoxIds, raw device identifiers, server implementation details, and
+customer-specific policy out of the public release surface.
+
+`v0.4.0` keeps the evidence-only SDK contract and adds Device Evidence Graph
+release gates, Android matrix readiness checks, customer evidence report
+contracts, feedback-loop gates, release evidence-pack validation, and stricter
+public release review wrappers. Real custom ROM/GSI/unlocked-device samples,
+broader external emulator templates, and real Play Integrity/OEM provider
+smoke remain tracked as external-input follow-ups.
 
 ## Install from GitHub Release
 
 GitHub Release AAR downloads remain supported as a fallback. Download
-`leona-sdk-android-0.3.0.aar` from the GitHub Release and place it in your app
-module, for example `app/libs/leona-sdk-android-0.3.0.aar`.
+`leona-sdk-android-0.4.0.aar` from the GitHub Release and place it in your app
+module, for example `app/libs/leona-sdk-android-0.4.0.aar`.
 
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation(files("libs/leona-sdk-android-0.3.0.aar"))
+    implementation(files("libs/leona-sdk-android-0.4.0.aar"))
 
     // Transitive dependencies required by the public AAR.
     implementation("androidx.core:core-ktx:1.13.1")
@@ -609,12 +861,12 @@ your reporting endpoint does. The public surface remains intentionally small.
 
 ## Current status
 
-`0.3.0` keeps the public Android SDK integration surface stable while adding
-Android API 23 hosted-reporting compatibility, API 23-30 validation coverage,
-cloud-phone evidence collection, HMA/Magisk/LSPosed provenance validation, and
-attestation dry-run release gates. The SDK is ready for hosted Leona API
-integration, while advanced private detectors and hosted policy remain
-closed-source.
+`0.4.0` keeps the public Android SDK integration surface stable while adding
+Device Evidence Graph release gates, Android matrix readiness checks, customer
+evidence report contracts, feedback-loop gates, release evidence-pack
+validation, and stricter public release review wrappers. The SDK is ready for
+hosted Leona API integration, while advanced private detectors and hosted
+policy remain closed-source.
 
 - The SDK already contains the native detection path, JNI bridge, payload
   format, and the Kotlin-side secure upload implementation.
