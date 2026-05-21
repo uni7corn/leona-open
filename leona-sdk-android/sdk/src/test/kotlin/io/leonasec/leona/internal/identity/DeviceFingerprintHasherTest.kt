@@ -13,27 +13,39 @@ import org.junit.Test
 class DeviceFingerprintHasherTest {
 
     @Test
+    fun `real device v2 fixture stays stable when volatile app data is unchanged`() {
+        val first = pixelFixtureFingerprint(appScopedAndroidId = "android-real-1")
+        val second = pixelFixtureFingerprint(appScopedAndroidId = "android-real-1")
+
+        assertEquals(first, second)
+        assertTrue(first.matches(Regex("[0-9a-f]{64}")))
+        assertEquals(2, DeviceFingerprintHasher.BASE_SEED_VERSION)
+        assertEquals("base_device_v2", DeviceFingerprintHasher.FINGERPRINT_SOURCE_BASE_V2)
+    }
+
+    @Test
     fun `virtual instance anchors are hashed and affect fingerprint`() {
-        val baseSeed = mapOf(
-            "version" to DeviceFingerprintHasher.VIRTUAL_ANCHOR_SEED_VERSION.toString(),
-            "identityAnchor" to "android:cloned",
-            "buildFingerprint" to "mumu/build/fingerprint",
-            "device" to "mumu",
-        )
         val firstAnchor = DeviceFingerprintHasher.hashVirtualInstanceAnchors(
             mapOf("prop.nemud.player_uuid" to "vm-instance-a"),
-        )
+        )!!
         val secondAnchor = DeviceFingerprintHasher.hashVirtualInstanceAnchors(
             mapOf("prop.nemud.player_uuid" to "vm-instance-b"),
+        )!!
+        val firstClone = mumuFixtureFingerprint(
+            appScopedAndroidId = "android-cloned",
+            virtualInstanceAnchorHash = firstAnchor,
+        )
+        val secondClone = mumuFixtureFingerprint(
+            appScopedAndroidId = "android-cloned",
+            virtualInstanceAnchorHash = secondAnchor,
         )
 
-        assertTrue(firstAnchor!!.matches(Regex("[0-9a-f]{64}")))
-        assertTrue(secondAnchor!!.matches(Regex("[0-9a-f]{64}")))
+        assertTrue(firstAnchor.matches(Regex("[0-9a-f]{64}")))
+        assertTrue(secondAnchor.matches(Regex("[0-9a-f]{64}")))
         assertNotEquals(firstAnchor, secondAnchor)
-        assertNotEquals(
-            DeviceFingerprintHasher.hashFingerprintSeed(baseSeed + ("virtualInstanceAnchorHash" to firstAnchor)),
-            DeviceFingerprintHasher.hashFingerprintSeed(baseSeed + ("virtualInstanceAnchorHash" to secondAnchor)),
-        )
+        assertNotEquals(firstClone, secondClone)
+        assertEquals(3, DeviceFingerprintHasher.VIRTUAL_ANCHOR_SEED_VERSION)
+        assertEquals("virtual_instance_anchor_v3", DeviceFingerprintHasher.FINGERPRINT_SOURCE_VIRTUAL_ANCHOR_V3)
     }
 
     @Test
@@ -41,24 +53,20 @@ class DeviceFingerprintHasherTest {
         val virtualAnchor = DeviceFingerprintHasher.hashVirtualInstanceAnchors(
             mapOf("prop.nemud.player_uuid" to "vm-instance-a"),
         )!!
-        val commonSeed = mapOf(
-            "version" to DeviceFingerprintHasher.VIRTUAL_ANCHOR_SEED_VERSION.toString(),
-            "identityAnchor" to "virtual:$virtualAnchor",
-            "virtualInstanceAnchorHash" to virtualAnchor,
-            "buildFingerprint" to "mumu/build/fingerprint",
-            "device" to "mumu",
-        )
-
-        val firstInstallSeed = commonSeed + ("identityAnchor" to "virtual:$virtualAnchor")
-        val secondInstallSeed = commonSeed + ("identityAnchor" to "virtual:$virtualAnchor")
 
         assertEquals(
-            DeviceFingerprintHasher.hashFingerprintSeed(firstInstallSeed),
-            DeviceFingerprintHasher.hashFingerprintSeed(secondInstallSeed),
+            mumuFixtureFingerprint(
+                appScopedAndroidId = "first-install-android-id",
+                virtualInstanceAnchorHash = virtualAnchor,
+            ),
+            mumuFixtureFingerprint(
+                appScopedAndroidId = "second-install-android-id",
+                virtualInstanceAnchorHash = virtualAnchor,
+            ),
         )
         assertNotEquals(
-            DeviceFingerprintHasher.hashFingerprintSeed(commonSeed + ("identityAnchor" to "android:first-install")),
-            DeviceFingerprintHasher.hashFingerprintSeed(commonSeed + ("identityAnchor" to "android:second-install")),
+            mumuFixtureFingerprint(appScopedAndroidId = "first-install-android-id"),
+            mumuFixtureFingerprint(appScopedAndroidId = "second-install-android-id"),
         )
     }
 
@@ -81,4 +89,36 @@ class DeviceFingerprintHasherTest {
         assertEquals(3, DeviceFingerprintHasher.VIRTUAL_ANCHOR_SEED_VERSION)
         assertEquals(3, DeviceFingerprintHasher.CACHE_SCHEMA_VERSION)
     }
+
+    private fun pixelFixtureFingerprint(appScopedAndroidId: String): String =
+        DeviceFingerprintHasher.fixtureFingerprintHash(
+            appScopedAndroidId = appScopedAndroidId,
+            buildFingerprint = "google/panther/panther:14/AP1A.240505.005/1234567:user/release-keys",
+            device = "panther",
+            product = "panther",
+            hardware = "panther",
+            brand = "google",
+            model = "Pixel 7",
+            manufacturer = "Google",
+            sdkInt = 34,
+            abis = listOf("arm64-v8a"),
+        )
+
+    private fun mumuFixtureFingerprint(
+        appScopedAndroidId: String,
+        virtualInstanceAnchorHash: String? = null,
+    ): String =
+        DeviceFingerprintHasher.fixtureFingerprintHash(
+            appScopedAndroidId = appScopedAndroidId,
+            buildFingerprint = "Netease/mumu/mumu:12/SQ3A.220705.004/20260507:user/release-keys",
+            device = "mumu",
+            product = "mumu",
+            hardware = "nemu",
+            brand = "Netease",
+            model = "MuMu",
+            manufacturer = "Netease",
+            sdkInt = 32,
+            abis = listOf("arm64-v8a", "armeabi-v7a"),
+            virtualInstanceAnchorHash = virtualInstanceAnchorHash,
+        )
 }

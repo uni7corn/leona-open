@@ -1,0 +1,22 @@
+{
+  "name": "@leonasec/leona-server-wrapper",
+  "version": "0.0.0-v0.4-skeleton",
+  "private": true,
+  "type": "module",
+  "description": "Public-safe Leona server-side wrapper skeleton. Evidence only; customer backend owns business decisions.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "pack:dry-run": "npm pack --dry-run",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

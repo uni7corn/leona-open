@@ -1,0 +1,4 @@
+java/.gradle/
+java/build/
+nodejs/node_modules/
+nodejs/*.tgz

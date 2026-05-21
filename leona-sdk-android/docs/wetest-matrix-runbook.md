@@ -2,8 +2,8 @@
 
 This runbook is for collecting Leona Android SDK evidence on WeTest devices while
 preserving the SDK principle: the client collects evidence only. Leona returns
-environment evidence and provenance; the customer business backend decides
-allow, challenge, block, honeypot, or any other product action.
+environment evidence and provenance; the customer business backend owns any
+product action.
 
 The current priority is the first online release. Release-gate testing is a
 smaller goal than the full security matrix: prove that representative clean OEM
@@ -45,8 +45,9 @@ Samsung Android 12 sample unless it is needed for a regression check.
 As of 2026-05-06, the first-release gate is considered complete for the
 evidence-collection launch scope:
 
-- Online homepage, health check, and recent BoxID query are reachable through
-  `https://leona.xiyanshan.com/`.
+- Public endpoint health was verified through the hosted Leona API. Internal
+  console/recent-box queries are private operational checks and are not part of
+  the public SDK runbook.
 - Clean OEM coverage includes Asus Android 12, HONOR Android 10, Xiaomi/Redmi
   Android 10, vivo Android 10, plus prior Samsung/Xiaomi Android 12 regression
   rows.
@@ -65,18 +66,48 @@ covered brand/model/Android row unless the goal is an explicit regression check.
 
 | Date | Brand | Model / marketing name | Android | Result | Output / BoxId | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2026-05-06 | Samsung | SM-N9760 / Galaxy SM-N9760 | 12 | pass | `01KQX4MAMPY17AYSCP8CZ2W81B` | Clean OEM; server scorer false-positive issue around `runtime.mapping.*` was fixed and redeployed. |
-| 2026-05-06 | Xiaomi | M2006J10C / Redmi K30 Ultra | 12 | pass | `01KQX0C9NNBS1ZT600Y94HSYRA` | Clean OEM; no emulator/root/hook findings after server scoring fix. |
-| 2026-05-06 | Redmi / Xiaomi | M2007J17C / Redmi Note 9 Pro 5G | 10 | pass | `01KQYP2JND3JRH0XZQPQ3XW459` | Clean OEM; WDB unstable, webshell direct succeeded. |
-| 2026-05-06 | Asus | ASUS_I003DD / ROG Phone 3 | 12 | pass | `01KQXJT0AHPVK3MFVZF9N7B2QN` | Clean OEM; online recent boxes returned `CLEAN / 0`. |
-| 2026-05-06 | HONOR | OXP-AN00 / Honor Play4 Pro | 10 | pass | `01KQY869HGJYZAD65HCAMDF16Y` | Clean OEM; validated Android 10 X25519 fallback. |
+| 2026-05-06 | Samsung | SM-N9760 / Galaxy SM-N9760 | 12 | pass | BoxId hint `01KQ...W81B`; `/tmp/leona-wetest-20260506-samsung-smn9760-cloudtest-auto-sense-redacted/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; scorer handling for `runtime.mapping.*` was fixed and redeployed. |
+| 2026-05-06 | Xiaomi | M2006J10C / Redmi K30 Ultra | 12 | pass | BoxId hint `01KQ...HSYRA`; `/tmp/leona-wetest-20260506-xiaomi-m2006j10c-cloudtest-auto-sense-redacted/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; hosted evidence query returned neutral clean-OEM evidence. |
+| 2026-05-06 | Redmi / Xiaomi | M2007J17C / Redmi Note 9 Pro 5G | 10 | pass | BoxId hint `01KQ...W459`; `/tmp/leona-wetest-redmi-note9pro-android10-cloudtest-webshell-20260506-210142/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; WDB unstable, webshell direct succeeded. |
+| 2026-05-06 | Asus | ASUS_I003DD / ROG Phone 3 | 12 | pass | BoxId hint `01KQ...B2QN`; `/tmp/leona-wetest-asus-android12-cloudtest-coordinate-fallback-20260506-104514/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; hosted evidence query returned neutral clean-OEM evidence. |
+| 2026-05-06 | HONOR | OXP-AN00 / Honor Play4 Pro | 10 | pass | BoxId hint `01KQ...16Y`; `/tmp/leona-wetest-honor-play4pro-android10-cloudtest-direct-x25519fix-20260506-165904/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; validated Android 10 X25519 fallback. |
 | 2026-05-06 | vivo / iQOO | V2049A / iQOO 7 | 14 | blocked | `/tmp/leona-wetest-vivo-iqoo7-android14-cloudtest-direct-retry-20260506-211932/` | Device posture clean; app timed out to an SCDN HTTPS node. Post-release network/node retest. |
 | 2026-05-07 | vivo | V2429A / vivo S20 | 15 | blocked | `/tmp/leona-wetest-vivo-v2429a-android15-20260507-0330/` | Device posture clean and app non-debug; WDB became `offline`, webshell/UI trigger did not produce BoxId. |
 | 2026-05-07 | OPPO | PCAM10 / OPPO A9 | 9 | blocked | `/tmp/leona-wetest-oppo-a9-pcam10-android9-webshell-direct-20260507-035232/` | Page install stayed at waiting state; WDB became `offline`, webshell closed before prompt. Try another OPPO model before retrying PCAM10. |
-| 2026-05-07 | OPPO | PDCM00 / OPPO Reno3 | 10 | pass | `01KQZEKZ9W5CBEZJH9EDWFBTCC`; `/tmp/leona-wetest-oppo-reno3-pdcm00-android10-webshell-direct-20260507-041037/` | Clean OEM; page install stayed at waiting state but package installed, webshell direct succeeded, server returned `CLEAN / 0`. |
-| 2026-05-07 | HUAWEI | HMA-TL00 / Huawei Mate 20 | 10 | pass | `01KQZE26F75XECKCGKVN59BS5M`; `/tmp/leona-wetest-huawei-mate20-hmatl00-android10-webshell-direct-retry-20260507-040055/` | Clean OEM; server returned `CLEAN / 0`. Low-trust client ROM telemetry included `client.rom.custom_aosp_like` / `client.rom.generic_aosp_like`; keep as evidence-label follow-up, not a release blocker. |
-| 2026-05-09 | vivo | V2031A / vivo Y73s | 10 | pass | `01KR4FSS1RJVT3Q4FT1N0ER9AX`; `/tmp/leona-wetest-vivo-y73s-v2031a-android10-fixed-installed-direct-20260509-030722/` | Clean OEM; first run exposed false emulator evidence from `qemu.hw.mainkeys*`, a vivo physical navigation-key property. Fixed APK SHA-256 `8580d1a571f865b1deb1e64ed5c2b088d3e35209c4cabb25385febd84b52d544` removed that signal and returned `CLEAN / 0`; authoritative events only `runtime.mapping.anonymous_executable_summary` and `tamper.installer.missing`. |
-| 2026-05-09 | realme | RMX2117 / realme Q2 5G | 10 | pass | `01KR4PKSRD3ZSGX0J6FXRXN2JZ`; `/tmp/leona-wetest-realme-q2-rmx2117-android10-clockfix-webshell-20260509-050630/` | Clean OEM; first run failed with server timestamp-skew rejection because the WeTest device wall clock was far from server time. Handshake now returns `serverTimeMillis`, the private reporting engine signs `sense()` with server-adjusted time, and the rebuilt cloudTest APK SHA-256 `7cab438a664ef29c1a2e1468a2ea172b1d71d3d1c51b7b1d5a265bde4ab1b157` returned `CLEAN / 0`. |
+| 2026-05-07 | OPPO | PDCM00 / OPPO Reno3 | 10 | pass | BoxId hint `01KQ...BTCC`; `/tmp/leona-wetest-oppo-reno3-pdcm00-android10-webshell-direct-20260507-041037/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; page install stayed at waiting state but package installed, webshell direct succeeded. |
+| 2026-05-07 | HUAWEI | HMA-TL00 / Huawei Mate 20 | 10 | pass | BoxId hint `01KQ...BS5M`; `/tmp/leona-wetest-huawei-mate20-hmatl00-android10-webshell-direct-retry-20260507-040055/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; former low-trust ROM telemetry label was fixed in SDK regression. |
+| 2026-05-09 | vivo | V2031A / vivo Y73s | 10 | pass | BoxId hint `01KR...9AX`; `/tmp/leona-wetest-vivo-y73s-v2031a-android10-fixed-installed-direct-20260509-030722/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; fixed APK SHA-256 `8580d1a571f865b1deb1e64ed5c2b088d3e35209c4cabb25385febd84b52d544` removed the navigation-key namespace signal. |
+| 2026-05-09 | realme | RMX2117 / realme Q2 5G | 10 | pass | BoxId hint `01KR...N2JZ`; `/tmp/leona-wetest-realme-q2-rmx2117-android10-clockfix-webshell-20260509-050630/` | Clean OEM; canonical hash recorded; authoritative events recorded; telemetry events recorded; rebuilt cloudTest APK SHA-256 `7cab438a664ef29c1a2e1468a2ea172b1d71d3d1c51b7b1d5a265bde4ab1b157` handled timestamp-skew recovery. |
+
+### Static Ledger Gate
+
+Run the static ledger gate before spending time on another WeTest device:
+
+```bash
+./scripts/verify-clean-oem-ledger.sh
+```
+
+The gate reads the Tested Device Ledger above. It does not start WeTest, ADB, or
+any paid device session. It requires at least six passing mainstream clean-OEM
+brand families, rejects raw BoxId values, requires redacted BoxId hints or
+hashes on pass rows, requires each pass row to reference an artifact directory
+and canonical / authoritative / telemetry evidence recording, and fails if any
+pass row contains release-gate false-positive family terms.
+
+For the v0.4 Android environment matrix, also run:
+
+```bash
+./scripts/verify-v0.4-android-matrix-readiness.sh
+```
+
+This gate is non-destructive: it does not start WeTest, ADB, an emulator, or any
+paid device session. It reads `rom-matrix.md`, `emulator-matrix.md`, and this
+runbook, verifies redaction, counts already completed matrix categories, and
+reports which P0-2 samples still require external devices or emulator installs.
+By default, missing external samples are recorded as
+`local-pass-with-external-blockers`. Set
+`LEONA_REQUIRE_FULL_V04_ANDROID_MATRIX=1` when the release gate must fail until
+the full v0.4 matrix is complete.
 
 ### Known False-Positive Regression Notes
 
@@ -98,11 +129,18 @@ Release-gate success requires:
 
 - The latest `cloudTest` or release-like non-debug APK installs and starts.
 - `sense()` returns a BoxId through `https://leona.xiyanshan.com/`.
-- `/v1/console/boxes/recent` contains the BoxId and actual authoritative event
-  ids, not a rule-set summary.
+- A host-side evidence query can match the BoxId and actual authoritative event
+  ids, not a rule-set summary. Operator-only endpoints are not public SDK
+  dependencies.
 - Clean OEM samples do not show actual Frida, Magisk, Xposed, unidbg, HONEYPOT,
   emulator, or root events unless the device really exposes that evidence.
 - WeTest ADB/developer-options/helper packages are labeled as harness telemetry.
+- `runtime.mapping.*` rows are runtime mapping facts. Do not describe them as
+  Frida, Hook, or injection unless the same record also contains a concrete
+  hook/injection family event.
+- `tamper.installer.missing` on WeTest, ADB, or manual sideload lanes is an
+  installer-route fact. It is expected test posture evidence unless the sample
+  was installed through the intended production distribution channel.
 - Each row saves redacted posture and package evidence plus the queried online
   record.
 
@@ -172,7 +210,7 @@ non-debug but still point at a staging or production Leona endpoint.
 - Build:
 
 ```bash
-LEONA_INCLUDE_PRIVATE_CORE=true ./gradlew :sample-app:assembleCloudTest \
+./gradlew :sample-app:assembleCloudTest \
   -PLEONA_API_KEY="$LEONA_API_KEY" \
   -PLEONA_CLOUD_TEST_TOKEN="$LEONA_CLOUD_TEST_TOKEN" \
   -PLEONA_REPORTING_ENDPOINT=https://leona.xiyanshan.com
@@ -253,7 +291,6 @@ process and calls `Leona.sense()` without relying on UI coordinates:
 ```bash
 LEONA_TRIGGER_SENSE=direct \
 LEONA_CLOUD_TEST_TOKEN="$LEONA_CLOUD_TEST_TOKEN" \
-LEONA_RECENT_BOXES_ENDPOINT='https://leona.xiyanshan.com/v1/console/boxes/recent?limit=5' \
 ./scripts/run-cloud-device-collection.sh
 ```
 
@@ -261,13 +298,12 @@ Use UI triggering only for manual UI smoke tests:
 
 ```bash
 LEONA_TRIGGER_SENSE=ui \
-LEONA_RECENT_BOXES_ENDPOINT='https://leona.xiyanshan.com/v1/console/boxes/recent?limit=5' \
 ./scripts/run-cloud-device-collection.sh
 ```
 
 The UI path performs vertical swipes, tries to locate `buttonSense` by
 resource-id, falls back to the configured tap coordinate, waits for the upload,
-and then queries recent online BoxIds. Override `LEONA_PRE_SENSE_SWIPES`,
+and then records the BoxId hint/hash for host-side evidence lookup. Override `LEONA_PRE_SENSE_SWIPES`,
 `LEONA_SENSE_TAP_X`, `LEONA_SENSE_TAP_Y`, and `LEONA_SENSE_WAIT_SECONDS` only
 when a model has a different viewport or UI scale.
 
@@ -345,17 +381,16 @@ Current verified state on 2026-05-06:
 - Host OpenSSL shows the full chain `leona.xiyanshan.com -> Let's Encrypt E8 ->
   ISRG Root X1` and `Verify return code: 0`.
 - Xiaomi Redmi `M2006J10C` / Android 12 generated online BoxId
-  `01KQX0C9NNBS1ZT600Y94HSYRA` through the script auto-sense path.
-- The server recent-boxes endpoint returned risk level `HIGH`, score `36`, with
-  no emulator/root/hook findings; the remaining reasons were installer/test
-  posture and private policy escalation.
+  BoxId hint `01KQ...HSYRA` through the script auto-sense path.
+- A private host-side evidence query found no emulator/root/hook findings; the
+  remaining evidence was installer/test posture. The private query endpoint and
+  production deployment notes are intentionally omitted from this public SDK
+  runbook.
 
-For collection-only cloud-test rows, the deployed ingestion service currently
-uses `LEONA_HANDSHAKE_ATTESTATION_REQUIRED=false`. This keeps missing or absent
-attestation as handshake/session evidence and allows `sense()` to return BoxId;
-Leona does not convert that evidence into a business action. Production tenants
-can still require attestation in their own business policy before allowing a
-business action.
+For collection-only cloud-test rows, attestation requirements are controlled by
+hosted Leona tenant policy. Public SDK docs should record provider/status/code
+evidence when available, but must not include production deployment switches or
+internal ops procedures.
 
 ## Minimum Device Matrix
 
@@ -394,7 +429,7 @@ business action.
 
 Allowed in shared reports:
 
-- BoxId.
+- Redacted BoxId hint or BoxId hash.
 - Verdict id.
 - 16-character or full SHA-256 hash of serial, Android ID, install ID,
   canonical ID, fingerprint, and APK.
@@ -408,7 +443,7 @@ Never place these values in shared reports, issue comments, PR descriptions, or
 public docs:
 
 - Raw serial number, raw Android ID, raw install ID, raw device ID, raw canonical
-  device ID, raw full build fingerprint, raw bootloader string.
+  device ID, raw full BoxId, raw full build fingerprint, raw bootloader string.
 - API keys, secret keys, verdict signing keys, `LEONA_E2E_TOKEN`, WeTest tokens,
   WDB tokens, cookies, CSRF tokens, or private endpoint credentials.
 - Full unfiltered package inventory from a personal or third-party device.
@@ -426,7 +461,8 @@ A batch is successful when all of these are true:
 - Each completed row has `device-summary.env`, `posture.env`,
   `risk-package-filter.txt`, `logcat.leona.txt`, `package.txt`, and a filled
   `matrix-row.md`.
-- Online API rows have BoxId plus host-side Leona evidence/provenance details.
+- Online API rows have a BoxId hint/hash plus host-side Leona
+  evidence/provenance details.
 - Reports separate authoritative server risk from low-trust client telemetry.
 - Privacy rules are satisfied by grep or manual review before artifacts are
   shared outside the local machine.

@@ -16,6 +16,9 @@ internal data class DeviceFingerprintSnapshot(
     val canonicalDeviceId: String?,
     val resolvedDeviceId: String,
     val fingerprintHash: String,
+    val fingerprintSource: String = "unknown",
+    val identityAnchorSource: String = "unknown",
+    val canonicalDeviceIdSource: String = "unknown",
     val packageName: String,
     val appVersionName: String?,
     val appVersionCode: Long,
@@ -43,6 +46,9 @@ internal data class DeviceFingerprintSnapshot(
         .put("canonicalDeviceId", canonicalDeviceId)
         .put("resolvedDeviceId", resolvedDeviceId)
         .put("fingerprintHash", fingerprintHash)
+        .put("fingerprintSource", fingerprintSource)
+        .put("identityAnchorSource", identityAnchorSource)
+        .put("canonicalDeviceIdSource", canonicalDeviceIdSource)
         .put("packageName", packageName)
         .put("appVersionName", appVersionName)
         .put("appVersionCode", appVersionCode)
@@ -73,6 +79,9 @@ internal data class DeviceFingerprintSnapshot(
                     canonicalDeviceId = obj.optString("canonicalDeviceId").ifBlank { null },
                     resolvedDeviceId = obj.getString("resolvedDeviceId"),
                     fingerprintHash = obj.getString("fingerprintHash"),
+                    fingerprintSource = obj.optString("fingerprintSource").ifBlank { "unknown" },
+                    identityAnchorSource = obj.optString("identityAnchorSource").ifBlank { "unknown" },
+                    canonicalDeviceIdSource = obj.optString("canonicalDeviceIdSource").ifBlank { "unknown" },
                     packageName = obj.getString("packageName"),
                     appVersionName = obj.optString("appVersionName").ifBlank { null },
                     appVersionCode = obj.optLong("appVersionCode", 0L),

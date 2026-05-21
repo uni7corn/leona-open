@@ -50,4 +50,47 @@ class DeviceEnvironmentEvidenceCollectorTest {
         assertTrue("expected ROM rollup evidence", "rom.custom_aosp_like" in evidence.evidenceIds)
         assertEquals("true", evidence.gsi["imageRunning"])
     }
+
+    @Test
+    fun `clean Huawei release build is not generic custom rom evidence`() {
+        val evidence = DeviceEnvironmentEvidenceCollector.summarize(
+            DeviceEnvironmentEvidenceCollector.BuildProfile(
+                tags = "release-keys",
+                type = "user",
+                fingerprint = "HUAWEI/HMA-TL00/HWHMA:10/HUAWEIHMA-TL00/10.0.0.180C01:user/release-keys",
+                brand = "HUAWEI",
+                manufacturer = "HUAWEI",
+                product = "HMA-TL00",
+                device = "HWHMA",
+                model = "HMA-TL00",
+                display = "HMA-TL00 10.0.0.180(C01E180R1P3)",
+                incremental = "10.0.0.180_generic_patch",
+                verifiedBootState = "green",
+                vbmetaDeviceState = "locked",
+                flashLocked = "1",
+                verityMode = "enforcing",
+            ),
+        )
+
+        assertEquals(false, "rom.generic_aosp_like" in evidence.evidenceIds)
+        assertEquals(false, "rom.custom_aosp_like" in evidence.evidenceIds)
+    }
+
+    @Test
+    fun `generic aosp gsi build remains custom rom evidence`() {
+        val evidence = DeviceEnvironmentEvidenceCollector.summarize(
+            DeviceEnvironmentEvidenceCollector.BuildProfile(
+                tags = "test-keys",
+                type = "userdebug",
+                fingerprint = "generic/aosp_arm64/gsi_arm64:15/AP3A/userdebug/test-keys",
+                product = "aosp_arm64",
+                device = "generic_arm64",
+                systemProductName = "aosp_arm64",
+                gsiImageRunning = "true",
+            ),
+        )
+
+        assertTrue("expected generic AOSP evidence", "rom.generic_aosp_like" in evidence.evidenceIds)
+        assertTrue("expected custom ROM rollup", "rom.custom_aosp_like" in evidence.evidenceIds)
+    }
 }

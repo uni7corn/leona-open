@@ -68,6 +68,7 @@ data class LeonaSupportBundle(
                 LeonaJsonRedaction.rawJsonSummary(cloudConfigRawJson)
             },
         )
+        .put("identityDiagnostics", identityDiagnosticsJson())
         .put("secureTransport", secureTransport?.toJsonObject(view))
         .put("diagnosticSnapshot", diagnosticSnapshot.toJsonObject(view))
         .put("serverVerdict", serverVerdict?.toJsonObject(view))
@@ -84,4 +85,10 @@ data class LeonaSupportBundle(
             .recoverCatching { JSONArray(this) }
             .getOrElse { this }
     }
+
+    private fun identityDiagnosticsJson(): JSONObject = JSONObject()
+        .put("fingerprintSchemaVersion", diagnosticSnapshot.fingerprintSchemaVersion)
+        .put("fingerprintSource", diagnosticSnapshot.fingerprintSource)
+        .put("identityAnchorSource", diagnosticSnapshot.identityAnchorSource)
+        .put("canonicalDeviceIdSource", diagnosticSnapshot.canonicalDeviceIdSource)
 }

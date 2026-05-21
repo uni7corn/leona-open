@@ -18,6 +18,10 @@ class LeonaSupportBundleTest {
             installId = "install-1",
             canonicalDeviceId = "Lcanon",
             fingerprintHash = "hash-1",
+            fingerprintSchemaVersion = 3,
+            fingerprintSource = "virtual_instance_anchor_v3",
+            identityAnchorSource = "virtual_instance_anchor",
+            canonicalDeviceIdSource = "server_persisted",
             packageName = "io.leonasec.demo",
             appVersionName = "1.0.0",
             appVersionCode = 1L,
@@ -39,8 +43,8 @@ class LeonaSupportBundleTest {
             nativeFindingIds = listOf("injection.frida.known_library"),
             nativeHighestSeverity = 3,
             nativeEventCount = 1,
-            serverDecision = "allow",
-            serverAction = "allow",
+            serverDecision = "evidence_collected",
+            serverAction = "business_defined",
             serverRiskLevel = "LOW",
             serverRiskScore = 10,
             serverRiskTags = setOf("trusted.device"),
@@ -49,8 +53,8 @@ class LeonaSupportBundleTest {
         val verdict = LeonaServerVerdict(
             boxId = "box-1",
             canonicalDeviceId = "Lcanon",
-            decision = "allow",
-            action = "allow",
+            decision = "evidence_collected",
+            action = "business_defined",
             riskLevel = "LOW",
             riskScore = 10,
             riskTags = setOf("trusted.device"),
@@ -97,7 +101,7 @@ class LeonaSupportBundleTest {
         )
         val bundle = LeonaSupportBundle(
             generatedAtMillis = 123L,
-            sdkVersion = "0.1.0-alpha.1",
+            sdkVersion = "0.1.0",
             tenantId = "tenant-a",
             appId = "app-a",
             region = "CN_BJ",
@@ -125,6 +129,22 @@ class LeonaSupportBundleTest {
         val obj = JSONObject(json)
 
         assertEquals("tenant-a", obj.getString("tenantId"))
+        assertEquals(
+            3,
+            obj.getJSONObject("identityDiagnostics").getInt("fingerprintSchemaVersion"),
+        )
+        assertEquals(
+            "virtual_instance_anchor_v3",
+            obj.getJSONObject("identityDiagnostics").getString("fingerprintSource"),
+        )
+        assertEquals(
+            "virtual_instance_anchor",
+            obj.getJSONObject("identityDiagnostics").getString("identityAnchorSource"),
+        )
+        assertEquals(
+            "server_persisted",
+            obj.getJSONObject("identityDiagnostics").getString("canonicalDeviceIdSource"),
+        )
         assertEquals("Tdevice", obj.getJSONObject("diagnosticSnapshot").getString("deviceId"))
         assertEquals(
             "root.su_or_busybox_path_present",

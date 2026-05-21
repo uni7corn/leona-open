@@ -10,5 +10,5 @@ package io.leonasec.leona
  * later, avoids pulling in another plugin just to expose a version string.
  */
 internal object BuildConstants {
-    const val VERSION_NAME = "0.1.0-alpha.1"
+    const val VERSION_NAME = "0.4.0"
 }

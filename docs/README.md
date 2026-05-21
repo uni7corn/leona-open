@@ -1,11 +1,14 @@
 # Leona Public Docs
 
-This directory contains public-safe documentation for the Leona Android public SDK.
+This directory contains public-safe documentation for Leona public SDK surfaces.
+Android is the released SDK line; iOS is a v0.4.0 public-safe scaffold/extension
+track until formally released.
 
 Public GitHub scope:
 
 - Android SDK integration
 - Android sample app behavior
+- iOS public SDK scaffold and sample app behavior when present
 - public/private boundary
 - public CI and release notes for the AAR
 
@@ -22,6 +25,10 @@ Start here:
 
 - [Open-source policy](open-source-policy.md)
 - [Public/private boundary matrix](open-vs-private-final-matrix.md)
+- [Android v0.4 evidence and privacy boundary](../leona-sdk-android/docs/v0.4-evidence-privacy-boundary.md)
+- [Android v0.4 release notes draft](../leona-sdk-android/docs/v0.4-release-notes-draft.md)
+- [Android v0.4 release checklist](../leona-sdk-android/docs/v0.4-release-checklist.md)
+- [Android SDK changelog](../leona-sdk-android/CHANGELOG.md)
 
 Automation runner prerequisites:
 

@@ -1,20 +1,25 @@
 # Leona Open-Source Policy
 
-> Updated: 2026-04-29
+> Updated: 2026-05-19
 
 ## 1. Public Scope
 
-The public GitHub repository only contains the Android public integration SDK.
+The public GitHub repository contains public integration SDK surfaces. Android is
+the released SDK line; iOS is a v0.4.0 public-safe scaffold/extension track.
 
 Public content includes:
 
 - Android SDK public API
 - Android sample app
+- iOS public SDK scaffold and public-safe tests when present
 - Gradle build and public SDK tests
 - public-safe integration documentation
 - public Android SDK CI
 
-The public repository is enough for customers to integrate Leona into an APK, generate a `BoxId`, and send that `BoxId` through their own backend to the Leona hosted environment-evidence API.
+The public repository is enough for customers to integrate Leona into an APK,
+generate a `BoxId`, and send that `BoxId` through their own backend to the Leona
+hosted environment-evidence API. The iOS scaffold follows the same evidence-only
+contract but remains a v0.4.0 extension track until formally released.
 
 ## 2. Closed-Source Scope
 

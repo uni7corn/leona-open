@@ -25,7 +25,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:textAppearance="?attr/textAppearanceBodySmall"
-            tools:text="SDK version: 0.1.0-alpha.1" />
+            tools:text="SDK version: 0.4.0" />
 
         <TextView
             android:id="@+id/serverMode"
@@ -311,7 +311,7 @@
                         android:fontFamily="monospace"
                         android:text="@string/support_bundle_placeholder"
                         android:textAppearance="?attr/textAppearanceBodySmall"
-                        tools:text="{&#10;  &quot;sdkVersion&quot;: &quot;0.1.0-alpha.1&quot;&#10;}" />
+                        tools:text="{&#10;  &quot;sdkVersion&quot;: &quot;0.4.0&quot;&#10;}" />
                 </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton

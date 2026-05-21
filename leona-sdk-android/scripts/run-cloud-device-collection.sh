@@ -13,7 +13,7 @@ TRANSPORT="${LEONA_TRANSPORT:-auto}"
 ADB_WAIT_SECONDS="${LEONA_ADB_WAIT_SECONDS:-20}"
 INSTALL_APK="${LEONA_INSTALL_APK:-auto}"
 KEEP_FULL_LOGCAT="${LEONA_KEEP_FULL_LOGCAT:-0}"
-RECENT_BOXES_ENDPOINT="${LEONA_RECENT_BOXES_ENDPOINT:-}"
+VERDICT_RESULT_JSON="${LEONA_VERDICT_RESULT_JSON:-}"
 WETEST_HELPER="${WETEST_WEBSHELL_HELPER:-/Users/a/.codex/skills/wetest/scripts/wetest_webshell_collect.py}"
 RISK_PACKAGE_REGEX="${LEONA_RISK_PACKAGE_REGEX:-magisk|zygisk|lsposed|xposed|riru|shamiko|supersu|superuser|kingroot|kinguser|busybox|kernelsu|apatch|frida|taichi|island|shelter|parallel|virtualapp|dualspace|cloneapp|wetest}"
 CLICK_SENSE="${LEONA_CLICK_SENSE:-0}"
@@ -127,7 +127,7 @@ Optional:
   LEONA_COLLECTION_OUT=/tmp/leona-cloud-device-run
   LEONA_INSTALL_APK=0|1|auto            Webshell cannot install APK; default auto.
   LEONA_KEEP_FULL_LOGCAT=1              Keep unfiltered local-only logcat.full.txt.
-  LEONA_RECENT_BOXES_ENDPOINT=https://host/v1/console/boxes/recent?limit=5
+  LEONA_VERDICT_RESULT_JSON=/path/server-verdict.json  Optional redacted result from your backend's BoxId verdict query.
   LEONA_TRIGGER_SENSE=direct|ui|none    direct uses cloudTest BroadcastReceiver; ui taps sample UI.
   LEONA_CLOUD_TEST_TOKEN=<token>         Required for LEONA_TRIGGER_SENSE=direct.
   LEONA_CLICK_SENSE=1                   Deprecated alias for LEONA_TRIGGER_SENSE=ui.
@@ -170,7 +170,7 @@ write_matrix_row_template() {
   local posture="${OUT_DIR}/posture.env"
   local package_dump="${OUT_DIR}/package.txt"
   local logcat="${OUT_DIR}/logcat.leona.txt"
-  local recent="${OUT_DIR}/server-recent-boxes.json"
+  local verdict_json="${OUT_DIR}/server-verdict.json"
   local brand manufacturer model release sdk abi serial_hash android_id_hash fingerprint_hash
   local install_result app_debuggable harness_present harness_notes box_id canonical_hint canonical_sha
   local server_level server_score authoritative_events contributing_events actual_status reason follow_up
@@ -201,16 +201,16 @@ write_matrix_row_template() {
   box_id="$(grep -Eo '"boxId":"[^"]+"' "${logcat}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)"
   canonical_hint="$(grep -Eo '"canonicalDeviceIdHint":"[^"]+"' "${logcat}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)"
   canonical_sha="$(grep -Eo '"canonicalDeviceIdSha256":"[^"]+"' "${logcat}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)"
-  if [[ -n "${box_id}" && -f "${recent}" ]]; then
-    server_level="$(BOX_ID="${box_id}" ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); b=(j["boxes"]||[]).find{|x|x["boxId"]==ENV["BOX_ID"]}; puts b ? b["riskLevel"].to_s : ""' "${recent}" 2>/dev/null || true)"
-    server_score="$(BOX_ID="${box_id}" ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); b=(j["boxes"]||[]).find{|x|x["boxId"]==ENV["BOX_ID"]}; puts b ? b["riskScore"].to_s : ""' "${recent}" 2>/dev/null || true)"
-    authoritative_events="$(BOX_ID="${box_id}" ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); b=(j["boxes"]||[]).find{|x|x["boxId"]==ENV["BOX_ID"]}; puts b ? (b["authoritativeEventIds"]||[]).join(", ") : ""' "${recent}" 2>/dev/null || true)"
-    contributing_events="$(BOX_ID="${box_id}" ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); b=(j["boxes"]||[]).find{|x|x["boxId"]==ENV["BOX_ID"]}; puts b ? (b["contributingEventIds"]||[]).join(", ") : ""' "${recent}" 2>/dev/null || true)"
+  if [[ -n "${box_id}" && -f "${verdict_json}" ]]; then
+    server_level="$(ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); puts (j["riskLevel"] || j.dig("risk", "level") || j.dig("verdict", "riskLevel")).to_s' "${verdict_json}" 2>/dev/null || true)"
+    server_score="$(ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); puts (j["riskScore"] || j.dig("risk", "score") || j.dig("verdict", "riskScore")).to_s' "${verdict_json}" 2>/dev/null || true)"
+    authoritative_events="$(ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); a=j["authoritativeEventIds"] || j.dig("provenance", "authoritativeEventIds") || []; puts a.join(", ")' "${verdict_json}" 2>/dev/null || true)"
+    contributing_events="$(ruby -rjson -e 'j=JSON.parse(File.read(ARGV[0])); a=j["contributingEventIds"] || j.dig("policyExplanation", "contributingEventIds") || j.dig("provenance", "contributingEventIds") || []; puts a.join(", ")' "${verdict_json}" 2>/dev/null || true)"
   fi
   if [[ -n "${box_id}" ]]; then
     actual_status="pass"
     reason="BoxId generated through ${TRIGGER_SENSE} trigger."
-    follow_up="$([[ -n "${server_level}" ]] && echo "Review server evidence details." || echo "Server recent boxes did not include this BoxId yet.")"
+    follow_up="$([[ -n "${server_level}" ]] && echo "Review business backend verdict details." || echo "Query this BoxId through your backend verdict integration and attach a redacted result if needed.")"
   else
     actual_status="blocked"
     reason="$(grep -E 'LeonaCloudTest.*"event":"error"|SSLHandshake|SocketTimeout|Trust anchor|CertPath' "${logcat}" 2>/dev/null | tail -1 | sed -E 's/[[:space:]]+/ /g' | cut -c1-220 || true)"
@@ -260,7 +260,7 @@ write_matrix_row_template() {
 - Server evidence level / score: ${server_level:-unknown} / ${server_score:-unknown}
 - Authoritative event ids: ${authoritative_events}
 - Contributing event ids: ${contributing_events}
-- riskTagsBySource summary: see server-recent-boxes.json when available
+- riskTagsBySource summary: see server-verdict.json when provided by your backend
 
 ## Interpretation
 
@@ -314,13 +314,15 @@ clean_package_dump() {
   ' "$1" 2>/dev/null || true
 }
 
-collect_recent_boxes() {
-  if [[ -z "${RECENT_BOXES_ENDPOINT}" ]]; then
+collect_verdict_result() {
+  if [[ -z "${VERDICT_RESULT_JSON}" ]]; then
     return 0
   fi
-  curl -fsS "${RECENT_BOXES_ENDPOINT}" > "${OUT_DIR}/server-recent-boxes.json" || {
-    echo "recent boxes query failed: ${RECENT_BOXES_ENDPOINT}" > "${OUT_DIR}/server-recent-boxes.error"
-  }
+  if [[ -f "${VERDICT_RESULT_JSON}" ]]; then
+    cp "${VERDICT_RESULT_JSON}" "${OUT_DIR}/server-verdict.json"
+  else
+    echo "LEONA_VERDICT_RESULT_JSON not found: ${VERDICT_RESULT_JSON}" > "${OUT_DIR}/server-verdict.error"
+  fi
 }
 
 run_adb_collection() {
@@ -491,6 +493,7 @@ run_wetest_webshell_collection() {
   } > "${OUT_DIR}/posture.env"
   grep -E '^package:' "${OUT_DIR}/webshell-raw/packages.txt" > "${OUT_DIR}/risk-package-filter.txt" || true
   clean_package_dump "${OUT_DIR}/webshell-raw/package.txt" > "${OUT_DIR}/package.txt"
+  redact_sensitive_file "${OUT_DIR}/webshell-raw/launch.txt" "${CLOUD_TEST_TOKEN}" "${E2E_TOKEN}"
   cp "${OUT_DIR}/webshell-raw/launch.txt" "${OUT_DIR}/am-start.log"
   redact_sensitive_file "${OUT_DIR}/am-start.log" "${CLOUD_TEST_TOKEN}" "${E2E_TOKEN}"
 
@@ -545,7 +548,7 @@ case "${TRANSPORT}" in
 esac
 
 echo "[7/7] Report"
-collect_recent_boxes
+collect_verdict_result
 write_matrix_row_template "${OUT_DIR}/matrix-row.md"
 {
   echo "# Leona Cloud Device Collection"
@@ -558,8 +561,10 @@ write_matrix_row_template "${OUT_DIR}/matrix-row.md"
   echo "- e2e: $([[ -n "${E2E_TOKEN}" ]] && echo "requested" || echo "not requested")"
   echo "- trigger sense: ${TRIGGER_SENSE}"
   echo "- full logcat: $([[ "${KEEP_FULL_LOGCAT}" == "1" ]] && echo "kept local-only" || echo "not collected by default")"
-  if [[ -f "${OUT_DIR}/server-recent-boxes.json" ]]; then
-    echo "- recent boxes: server-recent-boxes.json"
+  if [[ -f "${OUT_DIR}/server-verdict.json" ]]; then
+    echo "- verdict result: server-verdict.json"
+  else
+    echo "- verdict result: not collected; query BoxId through your backend /v1/verdict integration"
   fi
   echo
   echo "## Files"
