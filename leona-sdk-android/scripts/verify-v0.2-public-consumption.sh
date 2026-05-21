@@ -18,6 +18,13 @@ PASS_COUNT=0
 SKIPS=()
 FAILURES=()
 DOWNLOAD_METHOD=""
+RELEASE_CHECK_STATUS="not-run"
+PACKAGE_TOKEN_STATUS="missing"
+PACKAGE_CHECK_STATUS="not-run"
+
+if [[ -n "${PACKAGE_TOKEN}" ]]; then
+  PACKAGE_TOKEN_STATUS="present"
+fi
 
 mkdir -p "${OUT_DIR}"
 
@@ -74,12 +81,15 @@ if [[ -n "${DOWNLOAD_METHOD}" ]]; then
     cd "${OUT_DIR}"
     shasum -a 256 -c "${SHA_NAME}"
   ) > "${OUT_DIR}/release-aar-sha256.txt"
+  RELEASE_CHECK_STATUS="pass"
   pass "GitHub Release AAR fallback downloads via ${DOWNLOAD_METHOD} and matches sha256"
 else
+  RELEASE_CHECK_STATUS="failed"
   fail "GitHub Release AAR fallback download failed from ${RELEASE_BASE_URL}; curl failed and gh release download fallback was unavailable or failed"
 fi
 
 if [[ -z "${PACKAGE_TOKEN}" ]]; then
+  PACKAGE_CHECK_STATUS="skipped-missing-read-token"
   skip "GitHub Packages remote Gradle pull not run; set LEONA_GITHUB_PACKAGES_TOKEN or GITHUB_TOKEN with read:packages."
 else
   CONSUMER_DIR="${OUT_DIR}/github-packages-consumer"
@@ -141,8 +151,10 @@ EOF
     cd "${ROOT_DIR}"
     LEONA_GITHUB_PACKAGES_TOKEN="${PACKAGE_TOKEN}" ./gradlew -p "${CONSUMER_DIR}" verifyLeonaSdkDependency --no-daemon
   ) > "${OUT_DIR}/github-packages-consumer.txt"; then
+    PACKAGE_CHECK_STATUS="pass"
     pass "GitHub Packages remote Gradle pull resolves ${GROUP_ID}:${ARTIFACT_ID}:${VERSION}"
   else
+    PACKAGE_CHECK_STATUS="failed"
     fail "GitHub Packages remote Gradle pull failed; see ${OUT_DIR}/github-packages-consumer.txt"
   fi
 fi
@@ -153,6 +165,10 @@ fi
   echo "- status: $([[ "${STATUS}" == "0" ]] && echo "pass" || echo "failed")"
   echo "- coordinate: \`${GROUP_ID}:${ARTIFACT_ID}:${VERSION}\`"
   echo "- release fallback URL: \`${RELEASE_BASE_URL}/${AAR_NAME}\`"
+  echo "- release artifact check: \`${RELEASE_CHECK_STATUS}\`"
+  echo "- release artifact download method: \`${DOWNLOAD_METHOD:-none}\`"
+  echo "- GitHub Packages token: \`${PACKAGE_TOKEN_STATUS}\`"
+  echo "- GitHub Packages check: \`${PACKAGE_CHECK_STATUS}\`"
   echo "- report dir: \`${OUT_DIR}\`"
   echo "- pass checks: ${PASS_COUNT}"
   echo

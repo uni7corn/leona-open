@@ -9,6 +9,9 @@ SUMMARY_PATH="${REPORT_DIR}/summary.md"
 REQUIRE_READY="${LEONA_REQUIRE_POST_RELEASE_CONSUMPTION:-0}"
 STATUS="blocked-release-not-published"
 EXIT_CODE=0
+CHILD_RELEASE_CHECK_STATUS="unknown"
+CHILD_PACKAGE_TOKEN_STATUS="unknown"
+CHILD_PACKAGE_CHECK_STATUS="unknown"
 
 mkdir -p "${REPORT_DIR}"
 
@@ -34,6 +37,22 @@ else
   fi
 fi
 
+if [[ -f "${CHILD_OUT}/summary.md" ]]; then
+  CHILD_RELEASE_CHECK_STATUS="$(
+    sed -n 's/^- release artifact check: `\(.*\)`/\1/p' "${CHILD_OUT}/summary.md" | head -n 1
+  )"
+  CHILD_PACKAGE_TOKEN_STATUS="$(
+    sed -n 's/^- GitHub Packages token: `\(.*\)`/\1/p' "${CHILD_OUT}/summary.md" | head -n 1
+  )"
+  CHILD_PACKAGE_CHECK_STATUS="$(
+    sed -n 's/^- GitHub Packages check: `\(.*\)`/\1/p' "${CHILD_OUT}/summary.md" | head -n 1
+  )"
+
+  CHILD_RELEASE_CHECK_STATUS="${CHILD_RELEASE_CHECK_STATUS:-unknown}"
+  CHILD_PACKAGE_TOKEN_STATUS="${CHILD_PACKAGE_TOKEN_STATUS:-unknown}"
+  CHILD_PACKAGE_CHECK_STATUS="${CHILD_PACKAGE_CHECK_STATUS:-unknown}"
+fi
+
 {
   echo "# Leona v0.4 Android Post-Release Consumption Smoke"
   echo
@@ -41,6 +60,9 @@ fi
   echo "- target version: \`${VERSION}\`"
   echo "- report dir: \`${REPORT_DIR}\`"
   echo "- child report dir: \`${CHILD_OUT}\`"
+  echo "- child release artifact check: \`${CHILD_RELEASE_CHECK_STATUS}\`"
+  echo "- child GitHub Packages token: \`${CHILD_PACKAGE_TOKEN_STATUS}\`"
+  echo "- child GitHub Packages check: \`${CHILD_PACKAGE_CHECK_STATUS}\`"
   echo "- strict mode: \`${REQUIRE_READY}\`"
   echo "- creates tag: no"
   echo "- publishes artifacts: no"
